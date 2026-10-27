@@ -125,8 +125,8 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 **Mô tả:** Class `NoiseGate`: RMS khối so ngưỡng, gain làm mượt (attack nhanh, release chậm). Nối vào Pipeline sau band-pass, thêm `set_noise_gate(enabled, threshold_db)`.
 
 **Acceptance:**
-- [ ] Khối nhiễu -60 dBFS giảm ≥ 15 dB sau khi gain ổn định; khối sine -20 dBFS giữ trong 1 dB.
-- [ ] Bật/tắt có hiệu lực ở khối kế tiếp; ngưỡng ngoài miền ném `ValueError`.
+- [x] Khối nhiễu -60 dBFS giảm ≥ 15 dB sau khi gain ổn định; khối sine -20 dBFS giữ trong 1 dB.
+- [x] Bật/tắt có hiệu lực ở khối kế tiếp; ngưỡng ngoài miền ném `ValueError`.
 
 **Verify:** `python -m pytest -q`; thủ công: `--no-agent`, im lặng thì nền gần như tắt.
 
@@ -138,9 +138,9 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 **Mô tả:** FFT 512, hop 256, sqrt-Hann, overlap-add. Gain `max(1 - alpha·|N|/|X|, beta)`. Phổ ồn lấy từ hiệu chuẩn. Pipeline có trạng thái hiệu chuẩn, tự hiệu chuẩn 1 s lúc khởi động. Đặt SS giữa band-pass và gate.
 
 **Acceptance:**
-- [ ] `alpha=0`: đầu ra bằng đầu vào trễ 256 mẫu.
-- [ ] Sine 440 Hz + nhiễu trắng 5 dB, hiệu chuẩn 1 s nhiễu thuần: SNR tăng ≥ 5 dB.
-- [ ] Pipeline: trong lúc hiệu chuẩn không trừ ồn; xong thì Meters có mức ồn nền.
+- [x] `alpha=0`: đầu ra bằng đầu vào trễ 256 mẫu.
+- [x] Sine 440 Hz + nhiễu trắng 5 dB, hiệu chuẩn 1 s nhiễu thuần: SNR tăng ≥ 5 dB.
+- [x] Pipeline: trong lúc hiệu chuẩn không trừ ồn; xong thì Meters có mức ồn nền.
 
 **Verify:** `python -m pytest -q`; thủ công: bật quạt, `--no-agent`, im lặng 1 s đầu, nghe ồn quạt giảm.
 
@@ -152,8 +152,8 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 **Mô tả:** Thêm `smoothing` vào SpectralSubtractor và setter: `G_s = smoothing·G_s_prev + (1 - smoothing)·G`.
 
 **Acceptance:**
-- [ ] Trên nhiễu trắng thuần, độ lệch chuẩn theo thời gian của gain với `smoothing=0.5` thấp hơn `smoothing=0`.
-- [ ] `smoothing=0` cho kết quả giống hệt Task 8 (test cũ vẫn xanh).
+- [x] Trên nhiễu trắng thuần, độ lệch chuẩn theo thời gian của gain với `smoothing=0.5` thấp hơn `smoothing=0`.
+- [x] `smoothing=0` cho kết quả giống hệt Task 8 (test cũ vẫn xanh).
 
 **Verify:** `python -m pytest -q`
 
@@ -165,9 +165,9 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 **Mô tả:** Thêm `noise_mode` (`calibrate` | `minstat`). Minstat: `P = 0.85·P + 0.15·|X|²`, ring buffer 96 khung, `|N| = sqrt(1.5·min)`. Chế độ minstat bỏ qua hiệu chuẩn.
 
 **Acceptance:**
-- [ ] Nhiễu tăng +6 dB ở giây thứ 3: trong 2 s sau, ước lượng bám mức mới, sai số ≤ 3 dB.
-- [ ] Sine 1000 Hz bật/tắt mỗi 0.5 s: ước lượng ở bin 1000 Hz nằm trong 3 dB của nhiễu thật.
-- [ ] Sine bật liên tục 3 s: ước lượng ở bin đó tăng lên (ghi lại giới hạn đã biết).
+- [x] Nhiễu tăng +6 dB ở giây thứ 3: trong 2 s sau, ước lượng bám mức mới, sai số ≤ 3 dB.
+- [x] Sine 1000 Hz bật/tắt mỗi 0.5 s: ước lượng ở bin 1000 Hz nằm trong 3 dB của nhiễu thật.
+- [x] Sine bật liên tục 3 s: ước lượng ở bin đó tăng lên (ghi lại giới hạn đã biết).
 
 **Verify:** `python -m pytest -q`; thủ công: `--no-agent` với minstat, nói ngay từ đầu, ồn vẫn giảm sau khoảng 1.5 s.
 

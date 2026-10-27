@@ -75,3 +75,61 @@ def test_block_processing_is_fast():
     avg_ms = (time.perf_counter() - start) / len(blocks) * 1000
     assert avg_ms < 2.0
     assert p.meters.process_ms > 0
+
+def test_set_noise_gate_changes_params():
+    p = Pipeline(SR)
+    p.set_noise_gate(True, -40.0)
+    assert p.params().gate_enabled is True
+    assert p.params().gate_threshold_db == -40.0
+
+
+def test_invalid_noise_gate_raises_and_keeps_old_params():
+    p = Pipeline(SR)
+    before = p.params()
+    with pytest.raises(ValueError):
+        p.set_noise_gate(True, 10.0)
+    assert p.params() == before
+
+
+def test_set_spectral_subtraction_changes_params():
+    p = Pipeline(SR)
+    p.set_spectral_subtraction(True, 2.5, 0.05, 0.3)
+    params = p.params()
+    assert (params.ss_enabled, params.alpha, params.beta, params.smoothing) == (True, 2.5, 0.05, 0.3)
+
+
+def test_invalid_spectral_subtraction_raises_and_keeps_old_params():
+    p = Pipeline(SR)
+    before = p.params()
+    with pytest.raises(ValueError):
+        p.set_spectral_subtraction(True, -1.0, 0.02, 0.0)
+    assert p.params() == before
+
+
+def test_pipeline_calibrate_noise():
+    p = Pipeline(SR)
+    p.calibrate_noise(seconds=0.1)
+    assert p.meters.calibrating is True
+    block = sine_block(1000, amp=0.1)
+    while p.meters.calibrating:
+        p.process_block(block)
+    assert p.meters.calibrating is False
+    assert p.meters.noise_floor_db > -120.0
+
+
+def test_invalid_calibrate_noise_raises():
+    p = Pipeline(SR)
+    with pytest.raises(ValueError):
+        p.calibrate_noise(seconds=0.0)
+
+
+def test_set_noise_estimator_changes_params():
+    p = Pipeline(SR)
+    p.set_noise_estimator("minstat")
+    assert p.params().noise_mode == "minstat"
+
+
+def test_invalid_noise_estimator_raises():
+    p = Pipeline(SR)
+    with pytest.raises(ValueError):
+        p.set_noise_estimator("invalid_mode")
