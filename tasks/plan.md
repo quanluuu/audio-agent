@@ -1,83 +1,93 @@
 # Implementation Plan: Voice Agent
 
 ## Overview
-Xây theo [SPEC.md](../SPEC.md): trợ lý giọng nói. Bạn nói (push-to-talk) → chuỗi lọc DSP (band-pass → spectral subtraction → noise gate) → Gemini STT → Gemini chat + tools (DSP, ghi chú, mở app/web có xác nhận) → Gemini TTS đọc trả lời (hết hạn mức thì chuyển sang pyttsx3). Có thêm script đánh giá SNR + STOI. Task chi tiết nằm trong [todo.md](todo.md). Phân công và quy trình Git nằm trong [CONTRIBUTING.md](../CONTRIBUTING.md): **A (Windows)** làm Task 3–6b, 13–15; **B (Ubuntu)** làm Task 7–12.
+Xây theo [SPEC.md](../SPEC.md): trợ lý giọng nói. Bạn nói (push-to-talk) → chuỗi lọc DSP (band-pass → spectral subtraction → noise gate) → STT (`faster-whisper` local mặc định, Gemini tùy chọn qua `--stt`) → DeepSeek Flash trong graph LangGraph + tools (DSP, ghi chú, mở app/web có xác nhận bằng `interrupt()`) → pyttsx3 đọc trả lời. Có thêm script đánh giá SNR + STOI. Task chi tiết nằm trong [todo.md](todo.md). Phân công và quy trình Git nằm trong [CONTRIBUTING.md](../CONTRIBUTING.md): **A (Windows)** làm Task 0, 3–6b, 13–17; **B (Ubuntu)** làm Task 7–12 (7–10 đã xong).
 
 ## Architecture Decisions
-- **Rủi ro giọng nói làm trước bộ lọc (Phase 2).** TTS tiếng Việt (giọng OneCore, pyttsx3) và chất lượng Gemini STT tiếng Việt là 2 điều chưa chắc nhất. Nếu một trong hai không được, hướng đề tài phải đổi. Vì vậy cần biết sớm, trước khi đầu tư vào DSP.
-- **Lát dọc "nói → thấy chữ" (Task 5–6).** Thu câu nói + monitor + STT + in transcript chạy end-to-end khi mới có band-pass. Mỗi bộ lọc thêm sau đó vừa nghe được bằng `--no-agent`, vừa thấy được ảnh hưởng lên STT.
-- **Mỗi bộ lọc là một lát dọc:** test → class trong `dsp.py` → nối vào `Pipeline` → nghe thử.
+- **Task 0 trước hết.** `SPEC.md` và `CONTRIBUTING.md` đang bị `.gitignore` chặn, nên B chưa có hợp đồng `Pipeline`. Phải đưa lên repo trước khi làm tiếp.
+- **Rủi ro giọng nói làm trước agent (Phase 2).** pyttsx3 giờ là đường TTS duy nhất, và chưa chắc thấy giọng Việt OneCore. `faster-whisper` chưa chắc cài được trên Python 3.13/Windows. Task 4 và Task 6 kiểm tra hai điều này ngay đầu task.
+- **Lát dọc "nói → thấy chữ" (Task 5–6).** Thu câu nói + monitor + STT + in transcript chạy end-to-end trước khi có agent.
+- **STT là hàm `transcribe(wav_bytes) -> str` truyền vào.** Whisper và Gemini chỉ khác hàm tạo, nên Task 6b chỉ thêm backend và cờ, không đụng vòng chính.
+- **Agent xây dần theo graph:** tool thuần (13, 14) → graph `llm ↔ tools` (15) → node `confirm` + `interrupt()` (16) → vòng chính (17). Mỗi bước test được bằng model giả.
+- **Spike DeepSeek + LangGraph ở đầu Task 15**, trước khi viết graph: chốt tên model, đường import, tool calling thật.
+- **Xác nhận nằm ở node riêng, không nằm trong tool.** Resume `interrupt()` chạy lại node từ đầu. Tool nằm sau `interrupt()` sẽ chạy 2 lần.
+- **`actions.py` không phụ thuộc LangGraph.** Test bảo mật (allowlist, URL scheme, path traversal) chạy độc lập.
 - **`Pipeline` là điểm hội tụ duy nhất.** Realtime, đánh giá và agent đều dùng cùng một `Pipeline`.
-- **Đánh giá trước agent.** Kiểm chứng DSP và chỉnh hằng số trước khi giao cho LLM điều khiển.
-- **Phụ thuộc ngoài truyền vào dưới dạng hàm** (transcribe, chat, speak, confirm, Popen, webbrowser). Lõi logic test được bằng hàm giả. Gemini, giọng TTS và app thật chỉ kiểm tra thủ công.
-- **Hành động ngoài tách riêng `actions.py`**, có test bảo mật riêng (danh sách cho phép, URL scheme, path traversal, xác nhận).
+- **Phụ thuộc ngoài truyền vào dưới dạng tham số** (model Whisper, client Gemini, model chat, speak, ask_yes_no, Popen, webbrowser). Import thư viện nặng hoặc chỉ có trên Windows (`faster_whisper`, `pyttsx3`) nằm trong hàm, để test xanh trên Ubuntu.
 - **TDD mỗi task:** viết test đỏ → code tối thiểu cho xanh → dọn.
 
 ## Dependency Graph
 ```
-helpers ── BandPass ── Pipeline/Params/Meters ──┬── audio.py: stream + ghi WAV phiên          (xong)
-                                                ├── audio.py: monitor + thu câu nói ── voice.transcribe ──┐
-                                                ├── NoiseGate                                             │
-                                                ├── SpectralSubtractor ─┬─ gain smoothing                 │
-                                                │                       └─ minstat                        │
-                                                ├── scripts/evaluate.py (cần cả 3 bộ lọc)                 │
-                                                └── agent: tool DSP ──┐                                   │
-voice.speak (spike giọng Việt) ───────────────────────────────────────┤                                   │
-actions.py (open_app, open_url, search_web, save_note + confirm) ─────┼── agent: chat + handle_turn ◄─────┘
-                                                                      ┘
+helpers ── BandPass ── Pipeline/Params/Meters ──┬── audio.py: stream + ghi WAV phiên            (xong)
+                                                ├── NoiseGate, SS, smoothing, minstat           (xong, B)
+                                                ├── scripts/evaluate.py (11) ── đánh giá (12)   (B)
+                                                ├── monitor + thu câu nói (5) ── Whisper STT (6) ── Gemini STT + --stt (6b) ──┐
+                                                └── tool DSP (13) ── graph llm↔tools (15) ──┐                                  │
+actions.py + describe_action (14) ──────────────────────────────────── node confirm (16) ──┴── handle_turn + vòng chính (17) ◄┤
+pyttsx3 speak (4) ────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+Thứ tự của A: `0 → 4 → 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17`. Task 14 không phụ thuộc gì, có thể làm sớm hơn nếu bị chặn ở Phase 2.
+
 ## Task List
+
+### Phase 0: Đồng bộ spec
+- [ ] Task 0: Đưa SPEC lên repo (bỏ chặn trong `.gitignore`, PR cho B duyệt)
 
 ### Phase 1: Nền tảng + đường realtime
 - [x] Task 1: Khung dự án và hàm đo
 - [x] Task 2: BandPass + Pipeline tối thiểu
 - [ ] Task 3: Chạy realtime micro → tai nghe + ghi WAV — code + test xong, chờ nghe thử
 
-### Checkpoint 1: Nghe được band-pass trực tiếp, 0 underrun trong 2 phút
+### Checkpoint 1: Nghe được trực tiếp, 0 underrun trong 2 phút
 
-### Phase 2: Spike rủi ro giọng nói
-- [ ] Task 4: TTS dự phòng pyttsx3 (spike giọng Việt)
-- [ ] Task 5: Monitor bật/tắt + thu câu nói theo lượt
-- [ ] Task 6: Gemini STT + vòng "nói → thấy chữ"
-- [ ] Task 6b: Gemini TTS + chuyển sang pyttsx3 khi hết hạn mức
+### Phase 2: Giọng nói
+- [ ] Task 4: pyttsx3 giọng Việt (spike + `voice.speak`)
+- [x] Task 5: Monitor bật/tắt + thu câu nói theo lượt (+ cờ `--all-filters`)
+- [ ] Task 6: Whisper STT + vòng "nói → thấy chữ"
+- [ ] Task 6b: Gemini STT + cờ `--stt`
 
-### Checkpoint 2: Nói một câu → thấy đúng chữ; máy đọc được câu tiếng Việt
+### Checkpoint 2: Nói → thấy đúng chữ (Whisper ≤ 5 s/câu 5 s); máy đọc tiếng Việt khi stream đang mở
 
-### Phase 3: Bộ lọc khử ồn
-- [ ] Task 7: NoiseGate
-- [ ] Task 8: SpectralSubtractor, chế độ calibrate
-- [ ] Task 9: Làm mượt gain
-- [ ] Task 10: Ước lượng ồn minstat
+### Phase 3: Bộ lọc khử ồn (B, xong)
+- [x] Task 7: NoiseGate
+- [x] Task 8: SpectralSubtractor, chế độ calibrate
+- [x] Task 9: Làm mượt gain
+- [x] Task 10: Ước lượng ồn minstat
 
 ### Checkpoint 3: Cả chuỗi lọc chạy realtime < 2 ms/khối, STT vẫn đúng khi bật quạt
 
-### Phase 4: Đánh giá
+### Phase 4: Đánh giá (B)
 - [ ] Task 11: `scripts/evaluate.py`
 - [ ] Task 12: Thu dữ liệu, chạy đánh giá, ghi README
 
-### Checkpoint 4: Tiêu chí 7, 8 của spec đạt (hoặc được bạn duyệt chỉnh)
+### Checkpoint 4: Tiêu chí 8, 9 của spec đạt (hoặc được bạn duyệt chỉnh)
 
-### Phase 5: Agent
+### Phase 5: Agent (LangGraph + DeepSeek)
+- [ ] Task 14: Hành động ngoài (`actions.py` + `describe_action`)
 - [ ] Task 13: Tool DSP cho agent
-- [ ] Task 14: Hành động ngoài có xác nhận (`actions.py`)
-- [ ] Task 15: Vòng hội thoại Gemini đầy đủ
+- [ ] Task 15: Graph `llm ↔ tools` + spike DeepSeek
+- [ ] Task 16: Node `confirm` + `interrupt()`
+- [ ] Task 17: `handle_turn` + vòng hội thoại đầy đủ
 
-### Checkpoint 5: Toàn bộ Success Criteria trong SPEC.md
+### Checkpoint 5: Toàn bộ Success Criteria 1–9 trong SPEC.md
 
 ## Risks and Mitigations
 | Risk | Impact | Mitigation |
 |---|---|---|
-| pyttsx3 không thấy giọng Việt OneCore | Med | Giờ chỉ là đường dự phòng. Task 4 làm đầu Phase 2; sửa registry phải hỏi bạn trước. Không được thì khi Gemini TTS hết hạn mức agent chỉ in chữ. |
-| Phát audio Gemini TTS khi stream song công đang mở bị tranh thiết bị | Med | Kiểm tra thủ công ở Task 6b. Lỗi thì phát qua chính stream (hàng đợi phát trong callback). |
-| Gemini STT tiếng Việt kém, hoặc API audio khác hiểu biết của tôi | High | Task 6 đọc docs chính thức `google-genai` trước khi code, rồi thử ngay với giọng thật. |
-| SS làm STT kém đi (paper ghi nhận SS làm tăng WER) | Med | Checkpoint 3 so sánh STT khi bật/tắt bypass. Open Question 5 của spec đề xuất đo WER. |
-| Thiết bị âm thanh Windows không mở được 16 kHz hoặc độ trễ cao | Med | Đã kiểm tra: MME mặc định mở được 16 kHz, 0.2 ms/khối. Vẫn chờ nghe thử duplex ở Checkpoint 1. |
-| Callback audio bị underrun do Python/GIL | Med | Meters đếm underrun. Callback không gọi mạng, không TTS. |
-| Nhận dạng sai dẫn tới hành động sai | Med | Task 14: xác nhận y/n, danh sách cho phép, không shell, có test bảo mật. |
+| pyttsx3 không thấy giọng Việt OneCore (đường TTS duy nhất) | High | Task 4 làm đầu Phase 2. Sửa registry phải hỏi bạn trước. Vẫn không được thì dừng, hỏi bạn chọn lại hướng TTS. |
+| pyttsx3 treo hoặc tranh thiết bị khi stream đang mở | Med | Kiểm tra thủ công ở Task 4. Lỗi thì chạy trong luồng riêng hoặc tạm dừng stream khi đọc. |
+| `faster-whisper` cài lỗi trên Python 3.13/Windows | Med | Cài thử đầu Task 6, báo bạn trước khi đổi hướng. |
+| Whisper `small` nhận dạng tiếng Việt kém hoặc chậm > 5 s | Med | Đo ở Task 6. Kém thì thử `medium`, so với Gemini ở Task 6b. |
+| Đường import LangGraph / tên model DeepSeek khác hiểu biết hiện tại | Med | Đầu Task 15 đọc docs chính thức đúng bản cài, ghim phiên bản. |
+| `ChatDeepSeek` + tool calling có lỗi riêng | Med | Spike gọi thật ở Task 15 trước khi viết graph. Đổi gói phải hỏi bạn. |
+| Resume `interrupt()` làm tool chạy 2 lần | Med | `confirm` không tác dụng phụ; test 2 tool hành động trong một `AIMessage` (Task 16). |
+| SS làm STT kém đi (paper ghi nhận SS làm tăng WER) | Med | Checkpoint 3 so sánh STT khi bật/tắt bypass, trên cả Whisper và Gemini. |
+| Callback audio bị underrun do Python/GIL | Med | Meters đếm underrun. Callback không gọi mạng, không TTS, không STT. Whisper chạy ở luồng chính. |
+| Nhận dạng sai dẫn tới hành động sai | Med | Xác nhận y/n, danh sách cho phép, không shell, có test bảo mật. |
 | Hằng số minstat / ngưỡng STOI không hợp với dữ liệu thật | Med | Task 12 có bước chỉnh, mọi thay đổi tiêu chí phải được bạn duyệt. |
-| Tổng trễ một lượt vài giây | Low | Chấp nhận. In "đang nghĩ…". |
+| Tổng trễ một lượt vài giây | Low | Chấp nhận. In "đang nghe chữ…" và "đang nghĩ…". |
 
 ## Open Questions
-- Open Questions 1–6 trong SPEC.md vẫn mở. Câu 2 có số đo ở Checkpoint 1. Câu 6 (danh sách app) cần trả lời trước Task 14.
-- Repo GitHub private do A tạo (CONTRIBUTING.md mục 2). Mỗi task một nhánh + PR + người kia duyệt.
+- Open Questions 1–7 trong SPEC.md vẫn mở. Câu 1 (tên model DeepSeek) chốt ở Task 15. Câu 6 (danh sách app) cần trả lời trước Task 14. Câu 7 (model Gemini STT) chốt ở Task 6b.
+- Task 7–10 của B có vào `main` qua PR được duyệt không? Log chỉ có một commit thẳng trên `main`. Từ Task 11 nên đi đúng quy trình PR trong CONTRIBUTING.md.
