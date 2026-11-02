@@ -88,15 +88,15 @@ Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) �
 **Scope:** S
 
 ### Task 5: Monitor bật/tắt + thu câu nói theo lượt
-**Mô tả:** Thêm `monitor` vào `Params` + `Pipeline.set_monitor`. Callback: monitor tắt thì ghi khối 0 ra tai nghe. Thêm bộ thu câu nói: `start_utterance()` / `stop_utterance() -> bytes | None`. Khi đang giữ lượt, callback chép khối đã khử ồn vào bộ đệm. Lúc dừng thì đóng gói thành WAV 16 kHz mono trong RAM. Câu < 0.3 s trả `None`. `--no-agent` bật monitor sẵn; chế độ thường thì tắt, trừ khi có `--monitor`. Task này sửa `pipeline.py` của B: làm sớm, merge nhanh. Gộp thêm: cờ `--all-filters` bật band-pass + SS (`calibrate`, `smoothing=0.5`) + gate rồi hiệu chuẩn 1 s, vì `Params` mặc định tắt SS và gate nên trước đây không thử realtime được cả chuỗi.
+**Mô tả:** Thêm `monitor` vào `Params` + `Pipeline.set_monitor`. Callback: monitor tắt thì ghi khối 0 ra tai nghe. Thêm bộ thu câu nói: `start_utterance()` / `stop_utterance() -> bytes | None`. Khi đang giữ lượt, callback chép khối đã khử ồn vào bộ đệm. Lúc dừng thì đóng gói thành WAV 16 kHz mono trong RAM. Câu < 0.3 s trả `None`. `--no-agent` bật monitor sẵn; chế độ thường thì tắt, trừ khi có `--monitor`. Task này sửa `pipeline.py` của B: làm sớm, merge nhanh. Gộp thêm: cờ `--all-filters` bật band-pass + SS (`minstat`, `smoothing=0.5`) + gate, tức cấu hình 5 của spec, vì `Params` mặc định tắt SS và gate nên trước đây không thử realtime được cả chuỗi. Bản đầu dùng `calibrate` + hiệu chuẩn 1 s: phiên 2026-11-02 có 1 s đầu không im lặng (cao hơn ồn ~9 dB), nên giọng bị trừ 6.5 dB. Chuyển sang `minstat`: chạy lại bản ghi đó offline, giọng chỉ giảm 4.4 dB, ồn giảm 29.2 dB.
 
 **Acceptance:**
 - [x] Monitor tắt: tai nghe nhận khối 0. Monitor bật: nhận khối đã xử lý.
 - [x] Chỉ khối nằm giữa start và stop vào bộ đệm, và đó là khối đã khử ồn.
 - [x] WAV trong RAM đọc lại đúng 16 kHz, mono, đúng độ dài; câu < 0.3 s trả `None`.
-- [x] `enable_all_filters` bật cả chuỗi, `smoothing=0.5`, bắt đầu hiệu chuẩn.
+- [x] `enable_all_filters` bật cả chuỗi với `minstat`, `smoothing=0.5`, không hiệu chuẩn. Ồn trắng ổn định giảm ≥ 10 dB sau 1.5 s mà không cần 1 s im lặng.
 
-**Verify:** `python -m pytest -q` (56/56 xanh); thủ công: `python -m voiceagent --no-agent --all-filters` bật quạt, im lặng 1 s đầu, nghe ồn giảm, Meters 0 underrun < 2 ms/khối (đóng mục Checkpoint 3).
+**Verify:** `python -m pytest -q` (57/57 xanh); thủ công: `python -m voiceagent --no-agent --all-filters` bật quạt ≥ 2 phút, nghe ồn giảm, giọng vẫn rõ, Meters 0 underrun < 2 ms/khối (đóng mục Checkpoint 3).
 
 **Dependencies:** Task 3
 **Files:** `voiceagent/pipeline.py`, `voiceagent/audio.py`, `voiceagent/__main__.py`, `tests/test_pipeline.py`, `tests/test_audio.py`

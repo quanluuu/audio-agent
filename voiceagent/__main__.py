@@ -16,12 +16,13 @@ def format_status(pipeline: Pipeline) -> str:
 
 
 def enable_all_filters(pipeline: Pipeline) -> None:
-    """Turn on band-pass + spectral subtraction (smoothing 0.5) + gate, then calibrate on the next 1 s."""
+    """Turn on band-pass + spectral subtraction (minstat, smoothing 0.5) + gate: spec evaluation config 5."""
     p = pipeline.params()
     pipeline.set_bandpass(True, p.low_hz, p.high_hz)
+    # minstat tracks the noise floor continuously, so no silent first second is needed
+    pipeline.set_noise_estimator("minstat")
     pipeline.set_spectral_subtraction(True, p.alpha, p.beta, 0.5)
     pipeline.set_noise_gate(True, p.gate_threshold_db)
-    pipeline.calibrate_noise(1.0)
 
 
 def main() -> int:
@@ -32,7 +33,7 @@ def main() -> int:
     parser.add_argument("--no-agent", action="store_true", help="chỉ chạy DSP, không dùng agent (monitor bật sẵn)")
     parser.add_argument("--monitor", action="store_true", help="nghe lại giọng mình qua tai nghe")
     parser.add_argument("--all-filters", action="store_true",
-                        help="bật cả band-pass + spectral subtraction + noise gate, hiệu chuẩn ồn 1 s đầu")
+                        help="bật cả band-pass + spectral subtraction (minstat) + noise gate")
     args = parser.parse_args()
 
     if args.list_devices:
@@ -41,6 +42,8 @@ def main() -> int:
 
     pipeline = Pipeline()
     pipeline.set_monitor(args.monitor or args.no_agent)
+    if args.all_filters:
+        enable_all_filters(pipeline)
     raw, clean = [], []
     try:
         stream = open_stream(pipeline, raw, clean, args.input, args.output)
@@ -52,9 +55,6 @@ def main() -> int:
     print("Đang chạy. Đeo tai nghe để tránh hú. Enter: xem chỉ số, quit: thoát.")
     try:
         with stream:
-            if args.all_filters:
-                print("Im lặng 1 giây để đo ồn nền…")
-                enable_all_filters(pipeline)  # calibration runs on the next 1 s of blocks, now that the stream is live
             while True:
                 try:
                     line = input("> ").strip().lower()

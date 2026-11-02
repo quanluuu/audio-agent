@@ -7,6 +7,7 @@ from scipy.io import wavfile
 
 from voiceagent.__main__ import enable_all_filters
 from voiceagent.audio import UtteranceRecorder, make_callback, save_recording
+from voiceagent.dsp import rms_db
 from voiceagent.pipeline import Pipeline
 
 SR = 16000
@@ -74,13 +75,24 @@ def test_short_or_missing_utterance_returns_none():
     assert rec.stop() is None
 
 
-def test_enable_all_filters_turns_on_chain_and_calibrates():
+def test_enable_all_filters_uses_minstat_without_calibration():
     p = Pipeline(SR)
     enable_all_filters(p)
     params = p.params()
     assert params.bandpass_enabled and params.ss_enabled and params.gate_enabled
-    assert params.smoothing == 0.5
-    assert p.meters.calibrating is True
+    assert (params.noise_mode, params.smoothing) == ("minstat", 0.5)
+    assert p.meters.calibrating is False
+
+
+def test_all_filters_suppress_steady_noise_without_silent_start():
+    p = Pipeline(SR)
+    enable_all_filters(p)
+    rng = np.random.default_rng(1)
+    noise = [(0.01 * rng.standard_normal(256)).astype(np.float32) for _ in range(int(3 * SR / 256))]
+    out = [p.process_block(b) for b in noise]
+    last = slice(-62, None)  # final ~1 s, after the 1.5 s minstat window has filled
+    reduction = rms_db(np.concatenate(noise[last])) - rms_db(np.concatenate(out[last]))
+    assert reduction >= 10.0
 
 
 def test_callback_counts_stream_problems():
