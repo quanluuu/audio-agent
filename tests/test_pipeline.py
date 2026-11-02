@@ -129,6 +129,13 @@ def test_set_noise_estimator_changes_params():
     assert p.params().noise_mode == "minstat"
 
 
+def test_monitor_is_off_by_default_and_can_be_enabled():
+    p = Pipeline(SR)
+    assert p.params().monitor is False
+    p.set_monitor(True)
+    assert p.params().monitor is True
+
+
 def test_invalid_noise_estimator_raises():
     p = Pipeline(SR)
     with pytest.raises(ValueError):

@@ -2,6 +2,23 @@
 
 Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn code. Lệnh test chung: `python -m pytest -q`.
 
+Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) → DeepSeek Flash trong graph LangGraph → pyttsx3. Không dùng Gemini TTS, không dùng Gemini Live.
+
+## Phase 0: Đồng bộ spec
+
+### Task 0: Đưa SPEC lên repo
+**Mô tả:** `.gitignore` đang chặn `SPEC.md` và `CONTRIBUTING.md`, nên B chưa có hợp đồng `Pipeline` và hướng mới. Bỏ 2 dòng đó khỏi `.gitignore` (giữ `CLAUDE.md`). Sửa `CONTRIBUTING.md`: bảng phân công thêm Task 16, 17; mục Bí mật đổi sang `DEEPSEEK_API_KEY` (và `GEMINI_API_KEY` khi `--stt gemini`). Nhánh `spec-deepseek-langgraph`, PR cho B duyệt.
+
+**Acceptance:**
+- [x] `git ls-files` có `SPEC.md`, `CONTRIBUTING.md`; không có `CLAUDE.md`. (commit `6577b9b`)
+- [ ] B duyệt PR. Mục "Giao diện `Pipeline`" khớp với code B đã viết.
+
+**Verify:** `git ls-files SPEC.md CONTRIBUTING.md`; `python -m pytest -q`
+
+**Dependencies:** None
+**Files:** `.gitignore`, `SPEC.md`, `CONTRIBUTING.md`, `tasks/plan.md`, `tasks/todo.md`
+**Scope:** XS
+
 ## Phase 1: Nền tảng + đường realtime
 
 ### Task 1: Khung dự án và hàm đo
@@ -42,7 +59,7 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 
 **Verify:**
 - `python -m pytest -q`
-- Thủ công (CHỜ BẠN): đeo tai nghe, chạy `python -m voiceagent --no-agent` 2 phút, nghe thấy giọng mình (đã band-pass). Meters báo 0 underrun. Ctrl+C sinh 2 file WAV.
+- Thủ công (xong 2026-11-02): đeo tai nghe, chạy `python -m voiceagent --no-agent` 2 phút, nghe thấy giọng mình (đã band-pass). Meters báo 0 underrun. Ctrl+C sinh 2 file WAV.
 
 **Dependencies:** Task 2
 **Files:** `voiceagent/audio.py`, `voiceagent/__main__.py`, `tests/test_audio.py`
@@ -50,74 +67,73 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 
 ## Checkpoint 1: Sau Task 1–3
 - [x] Toàn bộ test xanh (30/30)
-- [ ] Nghe trực tiếp ổn định 2 phút, 0 underrun
-- [ ] Ghi lại độ trễ cảm nhận được, trả lời Open Question 2 của spec
+- [x] Nghe trực tiếp ổn định 2 phút, 0 underrun — phiên 2026-11-02 dài 159.9 s (`out/20261102-160821_*.wav`): underrun 0, 0.28 ms/khối. Chỉ có band-pass (gate và SS tắt mặc định)
+- [x] Ghi lại độ trễ cảm nhận được, trả lời Open Question 2 của spec — bạn nghe thử 2026-11-02: chấp nhận được (cảm nhận, chưa đo số ms)
 - [ ] Bạn duyệt trước khi sang Phase 2
 
-## Phase 2: Spike rủi ro giọng nói
+## Phase 2: Giọng nói (spike rủi ro trước)
 
-### Task 4: TTS dự phòng pyttsx3 (spike giọng Việt + `voice.speak` cục bộ)
-**Mô tả:** Đường TTS offline, dùng khi Gemini TTS (Task 6b) hết hạn mức hoặc lỗi. Bạn cài language pack tiếng Việt (Settings → Time & Language → Speech → thêm giọng). Kiểm tra pyttsx3 có liệt kê giọng `vi-VN` không. Nếu không thấy, đề xuất cách vòng qua registry và **chờ bạn đồng ý** trước khi sửa. Sau đó viết `voice.py`: `pick_voice(voices)` chọn giọng `vi-VN`, `make_speaker()` trả hàm `speak(text)`. Không có giọng Việt thì cảnh báo một lần, `speak` chỉ in chữ.
+### Task 4: pyttsx3 giọng Việt (spike + `voice.speak`)
+**Mô tả:** pyttsx3 giờ là **đường TTS duy nhất**, nên đây là rủi ro lớn nhất, làm trước. Bạn cài language pack tiếng Việt (Settings → Time & Language → Speech → thêm giọng). Kiểm tra pyttsx3 có liệt kê giọng `vi-VN` không. Không thấy thì đề xuất cách vòng qua registry (`Speech_OneCore` → `Speech`) và **chờ bạn đồng ý** trước khi sửa. Vẫn không được thì **dừng, hỏi bạn chọn lại hướng TTS**. Sau đó viết `voice.py`: `pick_voice(voices)` chọn giọng `vi-VN`, `make_speaker(engine_factory=...)` trả hàm `speak(text)`. `speak` in chữ rồi đọc. Không có giọng Việt thì cảnh báo một lần, sau đó chỉ in chữ. Lỗi engine thì in lỗi, không ném ra ngoài. `import pyttsx3` nằm trong hàm để test xanh trên Ubuntu.
 
 **Acceptance:**
 - [ ] `pick_voice` chọn đúng giọng `vi-VN` từ danh sách giọng giả; không có thì trả `None`.
-- [ ] Không có giọng Việt: `speak` không gọi engine, chỉ in chữ.
-- [ ] Thủ công: máy đọc được "Xin chào, mình là trợ lý giọng nói" bằng giọng Việt. Nếu không được: báo bạn. Dự án vẫn chạy được vì Gemini TTS là đường chính, nhưng khi hết hạn mức thì agent chỉ in chữ.
+- [ ] Không có giọng Việt: `speak` không gọi engine, chỉ in chữ. Engine giả ném lỗi: `speak` không ném lỗi.
+- [ ] Thủ công: máy đọc được "Xin chào, mình là trợ lý giọng nói" bằng giọng Việt, **trong lúc stream `--no-agent` đang mở**, không lỗi thiết bị, không treo. Treo thì thử chạy pyttsx3 trong luồng riêng, rồi báo bạn.
 
 **Verify:** `python -m pytest -q tests/test_voice.py`; `python -c "from voiceagent.voice import make_speaker; make_speaker()('Xin chào')"`
 
 **Dependencies:** None
-**Files:** `requirements.txt` (thêm `pyttsx3`), `voiceagent/voice.py`, `tests/test_voice.py`
+**Files:** `requirements.txt` (thêm `pyttsx3==<bản đã cài>`), `voiceagent/voice.py`, `tests/test_voice.py`
 **Scope:** S
 
 ### Task 5: Monitor bật/tắt + thu câu nói theo lượt
-**Mô tả:** Thêm `monitor` vào `Params` + `Pipeline.set_monitor`. Callback: monitor tắt thì ghi khối 0 ra tai nghe. Thêm bộ thu câu nói: `start_utterance()` / `stop_utterance() -> bytes | None`. Khi đang giữ lượt, callback chép khối đã khử ồn vào bộ đệm. Lúc dừng thì đóng gói thành WAV 16 kHz mono trong RAM. Câu < 0.3 s trả `None`. `--no-agent` bật monitor sẵn; chế độ thường thì tắt, trừ khi có `--monitor`.
+**Mô tả:** Thêm `monitor` vào `Params` + `Pipeline.set_monitor`. Callback: monitor tắt thì ghi khối 0 ra tai nghe. Thêm bộ thu câu nói: `start_utterance()` / `stop_utterance() -> bytes | None`. Khi đang giữ lượt, callback chép khối đã khử ồn vào bộ đệm. Lúc dừng thì đóng gói thành WAV 16 kHz mono trong RAM. Câu < 0.3 s trả `None`. `--no-agent` bật monitor sẵn; chế độ thường thì tắt, trừ khi có `--monitor`. Task này sửa `pipeline.py` của B: làm sớm, merge nhanh. Gộp thêm: cờ `--all-filters` bật band-pass + SS (`minstat`, `smoothing=0.5`) + gate, tức cấu hình 5 của spec, vì `Params` mặc định tắt SS và gate nên trước đây không thử realtime được cả chuỗi. Bản đầu dùng `calibrate` + hiệu chuẩn 1 s: phiên 2026-11-02 có 1 s đầu không im lặng (cao hơn ồn ~9 dB), nên giọng bị trừ 6.5 dB. Chuyển sang `minstat`: chạy lại bản ghi đó offline, giọng chỉ giảm 4.4 dB, ồn giảm 29.2 dB.
 
 **Acceptance:**
-- [ ] Monitor tắt: tai nghe nhận khối 0. Monitor bật: nhận khối đã xử lý.
-- [ ] Chỉ khối nằm giữa start và stop vào bộ đệm, và đó là khối đã khử ồn.
-- [ ] WAV trong RAM đọc lại đúng 16 kHz, mono, đúng độ dài; câu < 0.3 s trả `None`.
+- [x] Monitor tắt: tai nghe nhận khối 0. Monitor bật: nhận khối đã xử lý.
+- [x] Chỉ khối nằm giữa start và stop vào bộ đệm, và đó là khối đã khử ồn.
+- [x] WAV trong RAM đọc lại đúng 16 kHz, mono, đúng độ dài; câu < 0.3 s trả `None`.
+- [x] `enable_all_filters` bật cả chuỗi với `minstat`, `smoothing=0.5`, không hiệu chuẩn. Ồn trắng ổn định giảm ≥ 10 dB sau 1.5 s mà không cần 1 s im lặng.
 
-**Verify:** `python -m pytest -q`
+**Verify:** `python -m pytest -q` (57/57 xanh); thủ công: `python -m voiceagent --no-agent --all-filters` bật quạt ≥ 2 phút, nghe ồn giảm, giọng vẫn rõ, Meters 0 underrun < 2 ms/khối (đóng mục Checkpoint 3).
 
 **Dependencies:** Task 3
 **Files:** `voiceagent/pipeline.py`, `voiceagent/audio.py`, `voiceagent/__main__.py`, `tests/test_pipeline.py`, `tests/test_audio.py`
 **Scope:** M
 
-### Task 6: Gemini STT + vòng "nói → thấy chữ"
-**Mô tả:** Đầu task, đọc docs chính thức `google-genai` về gửi audio inline. Viết `voice.transcribe(wav_bytes, client) -> str` và ghi transcript (`append_transcript(path, speaker, text)`). Sửa `__main__`: Enter trên dòng trống để bắt đầu/dừng lượt, in "🎙 đang nghe…", gửi STT, in `Bạn: …` và ghi transcript. Gõ chữ thì ghi `Bạn (gõ): …`. Chưa có chat. Thiếu `GEMINI_API_KEY`: báo rõ, vẫn chạy được phần DSP.
+### Task 6: Whisper STT + vòng "nói → thấy chữ"
+**Mô tả:** Đầu task, cài `faster-whisper` trên Python 3.13/Windows và chạy thử model `small` với 1 file WAV float32. Cài lỗi (wheel `ctranslate2`, `av`) thì **báo bạn trước khi đổi hướng**. Viết `voice.whisper_transcribe(model) -> transcribe(wav_bytes) -> str`: gọi `model.transcribe(io.BytesIO(wav_bytes), language="vi")`, nối chữ các segment, strip. Model nạp một lần lúc khởi động (`WhisperModel(WHISPER_MODEL or "small", device="cpu", compute_type="int8")`), in "đang tải model Whisper…"; import `faster_whisper` nằm trong hàm. Viết `append_transcript(path, speaker, text)`. Sửa `__main__`: Enter trên dòng trống để bắt đầu/dừng lượt, in "🎙 đang nghe…" rồi "đang nghe chữ…", in `Bạn: …`, ghi transcript. Gõ chữ thì ghi `Bạn (gõ): …`. Chưa có chat. `--no-agent` không nạp Whisper. Sửa help `--no-agent` (bỏ chữ "Gemini").
 
 **Acceptance:**
-- [ ] Transcript ghi đúng định dạng (test với file tạm).
-- [ ] Thiếu key hoặc lỗi mạng: thông báo rõ, không traceback, stream không dừng.
-- [ ] Thủ công: nói 5 câu tiếng Việt, chữ in ra đúng ý ít nhất 4/5 câu.
+- [ ] Model giả trả segment `" xin"`, `" chào"` → `"xin chào"`; không segment → `""`. Transcript ghi đúng định dạng (file tạm, `encoding="utf-8"`).
+- [ ] STT ném lỗi hoặc model không tải được: thông báo rõ, không traceback, stream không dừng, vẫn gõ chữ được.
+- [ ] Thủ công: nói 5 câu tiếng Việt, đúng ý ≥ 4/5. Câu 5 s có chữ trong ≤ 5 s (SPEC Success Criteria 6). Ghi thời gian thực đo. Kém thì thử `WHISPER_MODEL=medium` rồi báo bạn.
 
 **Verify:** `python -m pytest -q`; thủ công: `python -m voiceagent`, nói 5 câu, mở `out/*_transcript.md`.
 
 **Dependencies:** Task 5
-**Files:** `voiceagent/voice.py`, `voiceagent/__main__.py`, `tests/test_voice.py`
+**Files:** `requirements.txt` (thêm `faster-whisper==<bản đã cài>`), `voiceagent/voice.py`, `voiceagent/__main__.py`, `tests/test_voice.py`
 **Scope:** M
 
-### Task 6b: Gemini TTS + chuyển sang pyttsx3 khi hết hạn mức
-**Mô tả:** Đầu task, đọc docs chính thức `google-genai` về TTS: tên model, cách chọn giọng, định dạng audio trả về. Viết `gemini_tts(text, client) -> (audio, sr)` và phát bằng `sounddevice`. Sửa `make_speaker` thành chuỗi Gemini TTS → pyttsx3 → in chữ, theo quy tắc trong SPEC mục voice. Hàm Gemini, pyttsx3 và play được truyền vào để test bằng hàm giả. Nhận diện "hết hạn mức" qua mã lỗi 429 / `RESOURCE_EXHAUSTED` của `google-genai`.
+### Task 6b: Gemini STT + cờ `--stt`
+**Mô tả:** Đầu task, đọc docs chính thức `google-genai` về gửi audio inline, chọn model rẻ nhất nhận audio cho `GEMINI_STT_MODEL` (Open Question 7). Viết `gemini_transcribe(client, model)` với prompt "chép lại nguyên văn tiếng Việt, không thêm gì". Viết `make_transcriber(backend, env, load_whisper, make_gemini)`: `"whisper"` không bao giờ gọi Gemini; `"gemini"` có key thì dùng Gemini; `"gemini"` thiếu key hoặc không import được `google-genai` thì in một lần "Không dùng được Gemini STT, chuyển sang Whisper" và dùng Whisper. Thêm cờ `--stt whisper|gemini` (mặc định `whisper`).
 
 **Acceptance:**
-- [ ] Gemini thành công: phát audio, không gọi pyttsx3.
-- [ ] Lỗi hết hạn mức: câu đó đọc bằng pyttsx3; các câu sau không gọi Gemini nữa; thông báo chỉ in một lần.
-- [ ] Lỗi khác: câu đó đọc bằng pyttsx3, câu sau vẫn thử Gemini. Không có key: không bao giờ gọi Gemini.
-- [ ] Thủ công: câu tiếng Việt đọc bằng giọng Gemini trong lúc stream đang mở, không lỗi thiết bị. Đặt `GEMINI_TTS_MODEL` thành tên sai để giả lập lỗi, kiểm tra agent đọc bằng pyttsx3.
+- [ ] 3 nhánh của `make_transcriber` đúng như trên, với hàm Whisper/Gemini giả; thông báo fallback in đúng một lần.
+- [ ] Thủ công: 5 câu ở Task 6 chạy lại với `--stt gemini`. Ghi so sánh (đúng bao nhiêu câu, thời gian) với Whisper.
 
 **Verify:** `python -m pytest -q tests/test_voice.py`; thủ công như trên.
 
-**Dependencies:** Task 4, 6
-**Files:** `voiceagent/voice.py`, `tests/test_voice.py`
+**Dependencies:** Task 6
+**Files:** `voiceagent/voice.py`, `voiceagent/__main__.py`, `tests/test_voice.py`
 **Scope:** S
 
 ## Checkpoint 2: Sau Task 4–6b
 - [ ] Toàn bộ test xanh
-- [ ] Máy đọc được tiếng Việt (Gemini TTS, và pyttsx3 khi dự phòng); nói → thấy đúng chữ
-- [ ] Ghi chú chất lượng STT (đúng bao nhiêu câu, lỗi kiểu gì) để so sánh sau khi có bộ lọc
-- [ ] Bạn duyệt trước khi sang Phase 3
+- [ ] Máy đọc được tiếng Việt bằng pyttsx3 khi stream đang mở; nói → thấy đúng chữ
+- [ ] Ghi chú chất lượng STT Whisper vs Gemini (đúng bao nhiêu câu, lỗi kiểu gì, thời gian) để so sánh sau khi có bộ lọc
+- [ ] Bạn duyệt trước khi sang Phase 5
 
 ## Phase 3: Bộ lọc khử ồn
 
@@ -176,9 +192,9 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 **Scope:** S
 
 ## Checkpoint 3: Sau Task 7–10
-- [ ] Toàn bộ test xanh
-- [ ] Cả chuỗi chạy realtime 2 phút, 0 underrun, < 2 ms/khối
-- [ ] Bật quạt, nói 5 câu ở Task 6 khi bật lọc và khi bypass: so sánh STT, ghi kết quả
+- [x] Toàn bộ test xanh (51/51 trên Windows)
+- [x] Cả chuỗi chạy realtime 2 phút, 0 underrun, < 2 ms/khối — 2026-11-02 `--all-filters` (minstat), 158.0 s, 0 underrun, 0.44 ms/khối. Ồn giảm 35.4 dB, giọng giảm 4.7 dB (ước lượng theo phân vị 20%); phần giảm ở giọng để Task 12 chỉnh
+- [ ] (Sau Task 6) Bật quạt, nói 5 câu ở Task 6 khi bật lọc và khi bypass: so sánh STT, ghi kết quả
 - [ ] Bạn duyệt trước khi sang Phase 4
 
 ## Phase 4: Đánh giá
@@ -212,13 +228,27 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 **Scope:** S
 
 ## Checkpoint 4: Sau Task 11–12
-- [ ] Tiêu chí 7, 8 của spec đạt, hoặc bạn đã duyệt chỉnh
+- [ ] Tiêu chí 8, 9 của spec đạt, hoặc bạn đã duyệt chỉnh
 - [ ] Bạn duyệt trước khi sang Phase 5
 
-## Phase 5: Agent
+## Phase 5: Agent (LangGraph + DeepSeek)
+
+### Task 14: Hành động ngoài (`actions.py`)
+**Mô tả:** 4 tool `open_app`, `open_url`, `search_web`, `save_note(notes_dir)` cùng `ALLOWED_APPS` (Open Question 6 của spec). Tool **không** nhận `confirm` và không import LangGraph; xác nhận nằm ở node `confirm` (Task 16). Thêm `describe_action(name, args) -> str`: kiểm tra hợp lệ rồi trả câu hỏi xác nhận, sai thì ném `ValueError`. Mỗi tool vẫn tự kiểm tra lại trước khi làm. `Popen([exe])` không qua shell; `webbrowser.open`; slug an toàn; không ghi đè. Docstring kiểu Google (`Args:`) để LangChain lấy mô tả tham số. Xuất `ACTION_TOOLS`.
+
+**Acceptance:**
+- [ ] `open_app`: ngoài danh sách thì trả lỗi, không gọi Popen. Hợp lệ thì gọi đúng exe. `open_url` từ chối `file://`, `javascript:`, chuỗi không phải URL. `search_web` mã hóa đúng tiếng Việt và dấu cách.
+- [ ] `describe_action`: `open_app("cmd")`, `open_url("file:///C:/")` ném `ValueError`; `open_app("notepad")` trả câu hỏi có "Notepad".
+- [ ] `save_note`: title `../../evil` vẫn nằm trong `notes/`; trùng tên thêm số, không ghi đè.
+
+**Verify:** `python -m pytest -q tests/test_actions.py` (Popen và webbrowser thay bằng hàm giả qua monkeypatch)
+
+**Dependencies:** None
+**Files:** `voiceagent/actions.py`, `tests/test_actions.py`, `.gitignore` (kiểm tra có `notes/`)
+**Scope:** S
 
 ### Task 13: Tool DSP cho agent
-**Mô tả:** 8 hàm tool trong `agent.py` (`get_status`, `calibrate_noise`, `set_bandpass`, `set_spectral_subtraction`, `set_noise_estimator`, `set_noise_gate`, `set_bypass`, `set_monitor`). Tạo bởi `make_dsp_tools(pipeline)`, mỗi hàm có type hint + docstring, trả dict. Lỗi tham số trả `{"error": ...}`.
+**Mô tả:** 8 hàm tool trong `agent.py` (`get_status`, `calibrate_noise`, `set_bandpass`, `set_spectral_subtraction`, `set_noise_estimator`, `set_noise_gate`, `set_bypass`, `set_monitor`). Tạo bởi `make_dsp_tools(pipeline)`, mỗi hàm có type hint + docstring kiểu Google (`Args:`), trả dict. Lỗi tham số trả `{"error": ...}`. Chưa cần LangGraph.
 
 **Acceptance:**
 - [ ] Tham số hợp lệ đổi được Params; `get_status` trả Params + Meters.
@@ -230,35 +260,49 @@ Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn
 **Files:** `voiceagent/agent.py`, `tests/test_agent.py`
 **Scope:** S
 
-### Task 14: Hành động ngoài có xác nhận (`actions.py`)
-**Mô tả:** `make_action_tools(confirm, notes_dir)` trả 4 tool: `open_app`, `open_url`, `search_web`, `save_note`. Đi kèm `ALLOWED_APPS` theo Open Question 6 của spec. Mỗi tool kiểm tra đầu vào trước, sau đó hỏi `confirm`, đồng ý mới làm. `Popen` không qua shell; `webbrowser.open`; slug an toàn; không ghi đè.
+### Task 15: Graph LangGraph tối thiểu `llm ↔ tools` + spike DeepSeek
+**Mô tả:** Đầu task: cài `langgraph` 1.x và `langchain-deepseek`, ghim phiên bản. Đọc docs chính thức LangGraph đúng bản đã cài (đường import `StateGraph`, `MessagesState`, `interrupt`, `Command`, `InMemorySaver`). Đọc docs DeepSeek (`api-docs.deepseek.com`) để chốt tên model (Open Question 1 của spec). Spike: gọi thật `ChatDeepSeek(...).bind_tools(dsp_tools)` với "tắt khử ồn đi", kiểm tra trả về tool call `set_bypass`. Lỗi tool calling thì báo bạn trước khi đổi gói. Sau đó viết `AgentState`, `SYSTEM_PROMPT`, node `llm`, node `tools` tự viết (tuần tự, `ToolMessage` cho mọi tool call, tên lạ / sai tham số → `{"error"}`, in `[tool] …`), `route_after_llm` (chưa có nhánh `confirm`), `build_graph(model, dsp_tools, action_tools, checkpointer)`.
 
 **Acceptance:**
-- [ ] `open_app`: ngoài danh sách thì trả lỗi, không gọi Popen, không hỏi confirm. Từ chối thì `cancelled`, không gọi gì. Đồng ý thì gọi đúng exe.
-- [ ] `open_url` từ chối `file://`, `javascript:`, chuỗi không phải URL. `search_web` mã hóa đúng tiếng Việt và dấu cách.
-- [ ] `save_note`: title `../../evil` vẫn nằm trong `notes/`; trùng tên thêm số, không ghi đè.
+- [ ] Model giả không trả tool call: graph kết thúc ở `END`, trả đúng câu.
+- [ ] Model giả gọi `set_bypass(enabled=True)`: Params đổi, `ToolMessage` đúng `tool_call_id`, model được gọi 2 lần. Tên tool lạ / thiếu tham số: `ToolMessage` chứa `error`, graph không ném lỗi.
+- [ ] `convert_to_openai_tool(set_bandpass)` có 3 tham số bắt buộc, mỗi tham số có mô tả. Hai lượt cùng `thread_id`: lượt 2 thấy message lượt 1.
 
-**Verify:** `python -m pytest -q tests/test_actions.py` (Popen và webbrowser thay bằng hàm giả qua monkeypatch)
+**Verify:** `python -m pytest -q tests/test_agent.py`; spike thủ công với `DEEPSEEK_API_KEY`.
 
-**Dependencies:** None
-**Files:** `voiceagent/actions.py`, `tests/test_actions.py`, `.gitignore` (thêm `notes/`)
+**Dependencies:** Task 13
+**Files:** `requirements.txt`, `voiceagent/agent.py`, `tests/test_agent.py`
+**Scope:** M
+
+### Task 16: Node `confirm` + `interrupt()` cho hành động ngoài
+**Mô tả:** Thêm trường `preset` vào `AgentState`, node `confirm`, nhánh `confirm` trong `route_after_llm` (có ít nhất một tool thuộc `ACTION_TOOLS`). `confirm` gọi `describe_action`: sai thì ghi `preset[id] = {"error"}` và không hỏi; hợp lệ thì `interrupt({"question": …})`, từ chối thì `preset[id] = {"status": "cancelled"}`. `confirm` **không có tác dụng phụ** (resume chạy lại node). `tools` dùng `preset` nếu có, rồi xóa `preset`.
+
+**Acceptance:**
+- [ ] `open_app("notepad")`: `invoke` trả `__interrupt__` có câu hỏi. Resume `True` → `Popen` gọi đúng 1 lần. Resume `False` → không gọi, `ToolMessage` chứa `cancelled`.
+- [ ] `open_app("cmd")`: không interrupt, `ToolMessage` chứa `error`, không gọi `Popen`.
+- [ ] Một `AIMessage` có 2 tool hành động: 2 interrupt; đồng ý cái đầu, từ chối cái sau → chỉ tool đầu chạy, đúng 1 lần.
+
+**Verify:** `python -m pytest -q tests/test_agent.py`
+
+**Dependencies:** Task 14, 15
+**Files:** `voiceagent/agent.py`, `tests/test_agent.py`
 **Scope:** S
 
-### Task 15: Vòng hội thoại Gemini đầy đủ
-**Mô tả:** System prompt theo spec. Chat Gemini với lịch sử chữ + tool DSP + tool hành động (automatic function calling). `handle_turn(text, chat, speak, log)` gửi câu tới chat, đọc trả lời, ghi transcript. `confirm` thật = đọc câu hỏi qua TTS + chờ gõ y/n. Nối vào `__main__`: lượt nói → STT → `handle_turn`. In "đang nghĩ…". In mỗi tool được gọi.
+### Task 17: `handle_turn` + vòng hội thoại đầy đủ
+**Mô tả:** `handle_turn(text, graph, config, speak, ask_yes_no, log)`: invoke graph, lặp khi còn `__interrupt__` (đọc câu hỏi qua `speak`, `ask_yes_no()` đọc `y`/`n`, resume bằng `Command(resume=ok)`), đọc trả lời, ghi transcript. `recursion_limit=16`; bắt `GraphRecursionError` → đọc "Mình chưa làm được việc này". Bắt lỗi API (mạng, 401, 402, 429, 5xx, timeout) → in rõ, phiên vẫn chạy. Nối vào `__main__`: lượt nói → STT → "đang nghĩ…" → `handle_turn`. Thiếu `DEEPSEEK_API_KEY`: báo rõ, vẫn chạy DSP + STT + in transcript. `InMemorySaver`, `thread_id` = thời gian bắt đầu phiên.
 
 **Acceptance:**
-- [ ] `handle_turn` với hàm giả: chữ rỗng thì không gọi chat; có chữ thì chat → speak đúng câu trả lời → ghi transcript; chat ném lỗi thì báo lỗi, phiên vẫn chạy.
+- [ ] Với graph/speak/ask_yes_no giả: chữ rỗng thì không gọi graph; có chữ thì speak đúng câu trả lời và ghi transcript; có interrupt thì hỏi rồi resume; graph ném lỗi → báo lỗi, phiên vẫn chạy; model luôn gọi tool → câu dự phòng.
 - [ ] Thủ công: 6 kịch bản trong Success Criteria 4 của spec đều đạt.
 - [ ] Thủ công: thiếu key, ngắt mạng, `quit`, Ctrl+C đều thoát hoặc báo lỗi sạch; WAV + transcript được ghi.
 
 **Verify:** `python -m pytest -q`; thủ công: `python -m voiceagent`, chạy 6 kịch bản.
 
-**Dependencies:** Task 6b, 13, 14
+**Dependencies:** Task 4, 6b, 16
 **Files:** `voiceagent/agent.py`, `voiceagent/__main__.py`, `tests/test_agent.py`
 **Scope:** M
 
 ## Checkpoint 5: Hoàn thành
-- [ ] Toàn bộ Success Criteria 1–8 trong SPEC.md đạt
+- [ ] Toàn bộ Success Criteria 1–9 trong SPEC.md đạt
 - [ ] `/agent-skills:code-simplify` và ponytail review không còn vấn đề chặn
 - [ ] Sẵn sàng `/agent-skills:ship`

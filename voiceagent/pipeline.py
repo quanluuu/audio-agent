@@ -12,6 +12,7 @@ from voiceagent.dsp import BandPass, NoiseGate, SpectralSubtractor, rms_db
 @dataclass(frozen=True)
 class Params:
     bypass: bool = False
+    monitor: bool = False
     bandpass_enabled: bool = True
     low_hz: float = 100.0
     high_hz: float = 3800.0
@@ -56,6 +57,10 @@ class Pipeline:
     def set_bypass(self, enabled: bool) -> None:
         with self._lock:
             self._params = replace(self._params, bypass=enabled)
+
+    def set_monitor(self, enabled: bool) -> None:
+        with self._lock:
+            self._params = replace(self._params, monitor=enabled)
 
     def set_bandpass(self, enabled: bool, low_hz: float, high_hz: float) -> None:
         bandpass = BandPass(self.sr, low_hz, high_hz)  # raises ValueError before anything changes

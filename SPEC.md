@@ -424,7 +424,7 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
 
 ## Open Questions
 1. Model DeepSeek: bạn nhắc tới `deepseek-v4.1-flash-1017`. Trên API chính thức của DeepSeek, model này có thể chỉ gọi được qua alias `deepseek-v4-flash`. Mặc định dùng alias đó, và chốt tên ở task chat sau khi đọc docs. Bạn có cần ghim đúng phiên bản 1017 không? Nếu cần, có thể phải gọi qua nhà cung cấp khác (Cloudflare, Google Cloud).
-2. Độ trễ micro → tai nghe khi bật monitor (thường 50–150 ms trên Windows) có chấp nhận được không?
+2. ~~Độ trễ micro → tai nghe khi bật monitor (thường 50–150 ms trên Windows) có chấp nhận được không?~~ Đã trả lời 2026-11-02: chấp nhận được, theo cảm nhận khi nghe thử `--no-agent`. Chưa đo số ms.
 3. Có cần báo cáo/đồ thị (spectrogram trước/sau) cho bài tập không? Spec hiện không có `matplotlib`.
 4. Ngưỡng "STOI giảm ≤ 0.02" và các hằng số minstat (0.85, 96 khung, bias 1.5) là giá trị khởi đầu tôi chọn, không lấy từ paper. Có thể cần chỉnh sau khi chạy `evaluate.py` lần đầu.
 5. Muốn đo luôn ảnh hưởng của khử ồn lên nhận dạng giọng nói không? Cách làm: chạy STT trên giọng ồn và giọng đã khử ồn, rồi tính WER so với câu đọc mẫu. Đây đúng là thí nghiệm của paper. Có 2 backend thì so được cả Whisper với Gemini. Với Whisper thì chạy offline, không tốn tiền. Việc này cần thêm script.
