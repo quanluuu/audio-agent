@@ -10,7 +10,7 @@ Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) �
 **Mô tả:** `.gitignore` đang chặn `SPEC.md` và `CONTRIBUTING.md`, nên B chưa có hợp đồng `Pipeline` và hướng mới. Bỏ 2 dòng đó khỏi `.gitignore` (giữ `CLAUDE.md`). Sửa `CONTRIBUTING.md`: bảng phân công thêm Task 16, 17; mục Bí mật đổi sang `DEEPSEEK_API_KEY` (và `GEMINI_API_KEY` khi `--stt gemini`). Nhánh `spec-deepseek-langgraph`, PR cho B duyệt.
 
 **Acceptance:**
-- [ ] `git ls-files` có `SPEC.md`, `CONTRIBUTING.md`; không có `CLAUDE.md`.
+- [x] `git ls-files` có `SPEC.md`, `CONTRIBUTING.md`; không có `CLAUDE.md`. (commit `6577b9b`)
 - [ ] B duyệt PR. Mục "Giao diện `Pipeline`" khớp với code B đã viết.
 
 **Verify:** `git ls-files SPEC.md CONTRIBUTING.md`; `python -m pytest -q`
