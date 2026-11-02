@@ -193,7 +193,7 @@ Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) �
 
 ## Checkpoint 3: Sau Task 7–10
 - [x] Toàn bộ test xanh (51/51 trên Windows)
-- [ ] Cả chuỗi chạy realtime 2 phút, 0 underrun, < 2 ms/khối
+- [x] Cả chuỗi chạy realtime 2 phút, 0 underrun, < 2 ms/khối — 2026-11-02 `--all-filters` (minstat), 158.0 s, 0 underrun, 0.44 ms/khối. Ồn giảm 35.4 dB, giọng giảm 4.7 dB (ước lượng theo phân vị 20%); phần giảm ở giọng để Task 12 chỉnh
 - [ ] (Sau Task 6) Bật quạt, nói 5 câu ở Task 6 khi bật lọc và khi bypass: so sánh STT, ghi kết quả
 - [ ] Bạn duyệt trước khi sang Phase 4
 
