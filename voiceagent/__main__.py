@@ -1,4 +1,4 @@
-"""CLI entry: python -m voiceagent [--list-devices] [--input N] [--output N] [--no-agent]"""
+"""CLI entry: python -m voiceagent [--list-devices] [--input N] [--output N] [--no-agent] [--monitor] [--all-filters]"""
 
 import argparse
 import sys
@@ -15,12 +15,24 @@ def format_status(pipeline: Pipeline) -> str:
             f"xử lý {m.process_ms:.2f} ms/khối | underrun {m.underruns}")
 
 
+def enable_all_filters(pipeline: Pipeline) -> None:
+    """Turn on band-pass + spectral subtraction (smoothing 0.5) + gate, then calibrate on the next 1 s."""
+    p = pipeline.params()
+    pipeline.set_bandpass(True, p.low_hz, p.high_hz)
+    pipeline.set_spectral_subtraction(True, p.alpha, p.beta, 0.5)
+    pipeline.set_noise_gate(True, p.gate_threshold_db)
+    pipeline.calibrate_noise(1.0)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="voiceagent", description="Khử ồn giọng nói thời gian thực.")
     parser.add_argument("--list-devices", action="store_true", help="in danh sách thiết bị âm thanh rồi thoát")
     parser.add_argument("--input", type=int, help="số thiết bị micro (xem --list-devices)")
     parser.add_argument("--output", type=int, help="số thiết bị loa/tai nghe")
-    parser.add_argument("--no-agent", action="store_true", help="chỉ chạy DSP, không dùng Gemini")
+    parser.add_argument("--no-agent", action="store_true", help="chỉ chạy DSP, không dùng agent (monitor bật sẵn)")
+    parser.add_argument("--monitor", action="store_true", help="nghe lại giọng mình qua tai nghe")
+    parser.add_argument("--all-filters", action="store_true",
+                        help="bật cả band-pass + spectral subtraction + noise gate, hiệu chuẩn ồn 1 s đầu")
     args = parser.parse_args()
 
     if args.list_devices:
@@ -28,6 +40,7 @@ def main() -> int:
         return 0
 
     pipeline = Pipeline()
+    pipeline.set_monitor(args.monitor or args.no_agent)
     raw, clean = [], []
     try:
         stream = open_stream(pipeline, raw, clean, args.input, args.output)
@@ -39,6 +52,9 @@ def main() -> int:
     print("Đang chạy. Đeo tai nghe để tránh hú. Enter: xem chỉ số, quit: thoát.")
     try:
         with stream:
+            if args.all_filters:
+                print("Im lặng 1 giây để đo ồn nền…")
+                enable_all_filters(pipeline)  # calibration runs on the next 1 s of blocks, now that the stream is live
             while True:
                 try:
                     line = input("> ").strip().lower()
