@@ -2,11 +2,14 @@
 
 import argparse
 import sys
+import time
+from pathlib import Path
 
 import sounddevice as sd
 
-from voiceagent.audio import open_stream, save_recording
+from voiceagent.audio import UtteranceRecorder, open_stream, save_recording
 from voiceagent.pipeline import Pipeline
+from voiceagent.voice import append_transcript, listen_turn, load_whisper, whisper_transcribe
 
 
 def format_status(pipeline: Pipeline) -> str:
@@ -30,7 +33,7 @@ def main() -> int:
     parser.add_argument("--list-devices", action="store_true", help="in danh sách thiết bị âm thanh rồi thoát")
     parser.add_argument("--input", type=int, help="số thiết bị micro (xem --list-devices)")
     parser.add_argument("--output", type=int, help="số thiết bị loa/tai nghe")
-    parser.add_argument("--no-agent", action="store_true", help="chỉ chạy DSP, không dùng agent (monitor bật sẵn)")
+    parser.add_argument("--no-agent", action="store_true", help="chỉ chạy DSP, không STT, không agent (monitor bật sẵn)")
     parser.add_argument("--monitor", action="store_true", help="nghe lại giọng mình qua tai nghe")
     parser.add_argument("--all-filters", action="store_true",
                         help="bật cả band-pass + spectral subtraction (minstat) + noise gate")
@@ -45,28 +48,53 @@ def main() -> int:
     if args.all_filters:
         enable_all_filters(pipeline)
     raw, clean = [], []
+    utterance = UtteranceRecorder(pipeline.sr)
     try:
-        stream = open_stream(pipeline, raw, clean, args.input, args.output)
+        stream = open_stream(pipeline, raw, clean, args.input, args.output, utterance)
     except (sd.PortAudioError, ValueError) as e:
         print(f"Lỗi thiết bị âm thanh (input={args.input}, output={args.output}): {e}", file=sys.stderr)
         print("Chạy `python -m voiceagent --list-devices` để xem số thiết bị.", file=sys.stderr)
         return 2
 
-    print("Đang chạy. Đeo tai nghe để tránh hú. Enter: xem chỉ số, quit: thoát.")
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    transcript = Path("out") / f"{stamp}_transcript.md"
+    transcript.parent.mkdir(exist_ok=True)
+    transcribe = None
+    if not args.no_agent:
+        try:
+            transcribe = whisper_transcribe(load_whisper())
+        except Exception as e:  # no wheel, no network on first download: still usable by typing
+            print(f"Không tải được model Whisper ({e}). Vẫn gõ chữ được.")
+
+    if args.no_agent:
+        print("Đang chạy. Đeo tai nghe để tránh hú. Enter: xem chỉ số, quit: thoát.")
+    else:
+        print("Đang chạy. Enter: bắt đầu/dừng nói, gõ chữ rồi Enter: gửi chữ, status: chỉ số, quit: thoát.")
+    recording = False
     try:
         with stream:
             while True:
                 try:
-                    line = input("> ").strip().lower()
+                    line = input("> ").strip()
                 except EOFError:
                     break
-                if line == "quit":
+                if line.lower() == "quit":
                     break
-                print(format_status(pipeline))
+                if args.no_agent or line.lower() == "status":
+                    print(format_status(pipeline))
+                elif line:
+                    append_transcript(transcript, "Bạn (gõ)", line)
+                elif not recording:
+                    utterance.start()
+                    recording = True
+                    print("🎙 đang nghe… (Enter để dừng)")
+                else:
+                    recording = False
+                    listen_turn(utterance.stop(), transcribe, transcript)
     except KeyboardInterrupt:
         print()
     finally:
-        raw_path, clean_path = save_recording(raw, clean, "out", pipeline.sr)
+        raw_path, clean_path = save_recording(raw, clean, "out", pipeline.sr, stamp)
         print(f"Đã ghi {raw_path} và {clean_path}")
         print(format_status(pipeline))
     return 0

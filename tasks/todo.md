@@ -92,12 +92,14 @@ Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) �
 **Scope:** M
 
 ### Task 6: Whisper STT + vòng "nói → thấy chữ"
-**Mô tả:** Đầu task, cài `faster-whisper` trên Python 3.13/Windows và chạy thử model `small` với 1 file WAV float32. Cài lỗi (wheel `ctranslate2`, `av`) thì **báo bạn trước khi đổi hướng**. Viết `voice.whisper_transcribe(model) -> transcribe(wav_bytes) -> str`: gọi `model.transcribe(io.BytesIO(wav_bytes), language="vi")`, nối chữ các segment, strip. Model nạp một lần lúc khởi động (`WhisperModel(WHISPER_MODEL or "small", device="cpu", compute_type="int8")`), in "đang tải model Whisper…"; import `faster_whisper` nằm trong hàm. Viết `append_transcript(path, speaker, text)`. Sửa `__main__`: Enter trên dòng trống để bắt đầu/dừng lượt, in "🎙 đang nghe…" rồi "đang nghe chữ…", in `Bạn: …`, ghi transcript. Gõ chữ thì ghi `Bạn (gõ): …`. Chưa có chat. `--no-agent` không nạp Whisper. Sửa help `--no-agent` (bỏ chữ "Gemini").
+**Mô tả:** Đầu task, cài `faster-whisper` trên Python 3.13/Windows và chạy thử model `small` với 1 file WAV float32. Cài lỗi (wheel `ctranslate2`, `av`) thì **báo bạn trước khi đổi hướng**. Viết `voice.whisper_transcribe(model) -> transcribe(wav_bytes) -> str`: đọc WAV thành mảng float32, gọi `model.transcribe(audio, language="vi")`, nối chữ các segment, strip. Model nạp một lần lúc khởi động (`WhisperModel(WHISPER_MODEL or "small", device="cpu", compute_type="int8")`), in "đang tải model Whisper…"; import `faster_whisper` nằm trong hàm. Viết `append_transcript(path, speaker, text)`. Sửa `__main__`: Enter trên dòng trống để bắt đầu/dừng lượt, in "🎙 đang nghe…" rồi "đang nghe chữ…", in `Bạn: …`, ghi transcript. Gõ chữ thì ghi `Bạn (gõ): …`. Chưa có chat. `--no-agent` không nạp Whisper. Sửa help `--no-agent` (bỏ chữ "Gemini").
 
 **Acceptance:**
-- [ ] Model giả trả segment `" xin"`, `" chào"` → `"xin chào"`; không segment → `""`. Transcript ghi đúng định dạng (file tạm, `encoding="utf-8"`).
-- [ ] STT ném lỗi hoặc model không tải được: thông báo rõ, không traceback, stream không dừng, vẫn gõ chữ được.
+- [x] Model giả trả segment `" xin"`, `" chào"` → `"xin chào"`; không segment → `""`. Transcript ghi đúng định dạng (file tạm, `encoding="utf-8"`).
+- [x] STT ném lỗi hoặc model không tải được: thông báo rõ, không traceback, stream không dừng, vẫn gõ chữ được.
 - [ ] Thủ công: nói 5 câu tiếng Việt, đúng ý ≥ 4/5. Câu 5 s có chữ trong ≤ 5 s (SPEC Success Criteria 6). Ghi thời gian thực đo. Kém thì thử `WHISPER_MODEL=medium` rồi báo bạn.
+
+Spike 2026-11-09: faster-whisper 1.2.1 + ctranslate2 4.8.4 (4.8.5 mới 7 ngày, chưa ghim) + av 19.0.2. Lần đầu tải model `small` mất ~17 phút (mạng chậm). `av` 19 bỏ `metadata_errors` nên đưa file-like vào bị `TypeError`; chuyển sang đưa mảng numpy. Giọng Piper tổng hợp: nạp model ~3 s; câu 2.8 s ra chữ trong 4.4 s, gần đúng ("mưu" thay "mưa", "ổn" thay "ồn"). Chưa thử giọng thật.
 
 **Verify:** `python -m pytest -q`; thủ công: `python -m voiceagent`, nói 5 câu, mở `out/*_transcript.md`.
 

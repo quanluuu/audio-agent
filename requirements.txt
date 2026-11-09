@@ -2,5 +2,8 @@ numpy==2.5.3
 scipy==1.18.1
 sounddevice==0.5.6
 google-genai==2.30.1
+faster-whisper==1.2.1
+# 4.8.5 (2026-11-02) is under 2 weeks old at pin time; bump after review
+ctranslate2==4.8.4
 pystoi==0.4.1
 pytest==9.1.1

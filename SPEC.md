@@ -124,7 +124,7 @@ class Meters:
 
 ### voice — nghe
 - `transcribe(wav_bytes) -> str`: chuyển câu nói thành chữ. Trả chuỗi rỗng nếu không có lời nói. `make_transcriber(backend, ...)` trả hàm này theo cờ `--stt`:
-  - `whisper_transcribe`: model `faster-whisper` được nạp **một lần** lúc khởi động, có in "đang tải model Whisper…". Gọi `model.transcribe(io.BytesIO(wav_bytes), language="vi")`, rồi nối chữ của các segment lại. `faster-whisper` đọc được file-like nên không cần đổi định dạng. Cần kiểm tra thủ công với WAV float32.
+  - `whisper_transcribe`: model `faster-whisper` được nạp **một lần** lúc khởi động, có in "đang tải model Whisper…". Đọc WAV bằng `scipy.io.wavfile` thành mảng float32 16 kHz, gọi `model.transcribe(audio, language="vi")`, rồi nối chữ của các segment lại. Không đưa file-like vào: faster-whisper 1.2.1 giải mã file qua `av`, mà `av` 19 bỏ tham số `metadata_errors` nên lỗi.
   - `gemini_transcribe`: gửi audio inline kèm prompt "chép lại nguyên văn tiếng Việt, không thêm gì".
   - Chọn `gemini` mà thiếu `GEMINI_API_KEY`, hoặc không import được `google-genai`: in một lần "Không dùng được Gemini STT, chuyển sang Whisper", rồi dùng `whisper`.
   - STT lỗi giữa phiên (mạng, model): in lỗi, bỏ lượt đó, phiên vẫn chạy. Không tự đổi backend giữa phiên.
