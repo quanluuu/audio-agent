@@ -8,7 +8,7 @@ Dự án có 2 người: **A** dùng Windows, **B** dùng Ubuntu. Đọc [SPEC.m
 |---|---|---|
 | Task | 3 (nghe thử), 4, 5, 6, 6b, 14, 13, 15 | 7, 8, 9, 10, 11, 12 |
 | File sở hữu | `audio.py`, `voice.py`, `actions.py`, `agent.py`, `__main__.py` + test tương ứng | `dsp.py`, `pipeline.py`, `scripts/evaluate.py` + test tương ứng |
-| Vì sao | TTS giọng Việt, mở app Windows, thiết bị âm thanh đều cần Windows | Bộ lọc là numpy thuần, chạy và test được trên mọi máy |
+| Vì sao | Mở app Windows, thiết bị âm thanh đều cần Windows | Bộ lọc là numpy thuần, chạy và test được trên mọi máy |
 
 **Thứ tự để hai người không chờ nhau:**
 ```
@@ -105,7 +105,7 @@ Có xung đột: mở file bị báo, tìm các dòng `<<<<<<<` / `=======` / `>
 
 ## 5. Quy ước
 
-**Nhánh:** `task-<số 2 chữ số>-<mô-tả-ngắn>`, ví dụ `task-04-vietnamese-tts`. Sửa SPEC: `spec-<mô-tả>`. Một nhánh chỉ làm một task.
+**Nhánh:** `task-<số 2 chữ số>-<mô-tả-ngắn>`, ví dụ `task-06-whisper-stt`. Sửa SPEC: `spec-<mô-tả>`. Một nhánh chỉ làm một task.
 
 **Commit:** [Conventional Commits](https://www.conventionalcommits.org/), tiếng Anh, ngắn, nói *ý định*:
 ```
@@ -128,7 +128,7 @@ Scope là tên module: `dsp`, `pipeline`, `audio`, `voice`, `actions`, `agent`, 
 **Chạy được trên cả 2 hệ điều hành:**
 - Đường dẫn dùng `pathlib.Path`, không viết cứng `\` hay `/`.
 - Mở file văn bản luôn ghi `encoding="utf-8"`. Mặc định của Windows không phải UTF-8, tiếng Việt sẽ lỗi.
-- Thư viện chỉ có trên Windows (`pyttsx3` với giọng SAPI, exe trong `ALLOWED_APPS`) chỉ import *bên trong hàm*. Test thay bằng hàm giả. Nhờ vậy `python -m pytest -q` vẫn xanh trên Ubuntu.
+- Thư viện chỉ có trên Windows (exe trong `ALLOWED_APPS`) chỉ import *bên trong hàm*. Test thay bằng hàm giả. Nhờ vậy `python -m pytest -q` vẫn xanh trên Ubuntu.
 - Test không được cần micro, loa, mạng hay API key.
 - Line ending do `.gitattributes` lo (LF cho mọi file văn bản), không cần chỉnh gì thêm.
 

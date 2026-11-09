@@ -2,7 +2,7 @@
 
 Mỗi task theo TDD: viết test đỏ → code tối thiểu cho xanh → dọn code. Lệnh test chung: `python -m pytest -q`.
 
-Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) → DeepSeek Flash trong graph LangGraph → pyttsx3. Không dùng Gemini TTS, không dùng Gemini Live.
+Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) → DeepSeek Flash trong graph LangGraph → in câu trả lời ra màn hình. Agent không nói (không TTS), không dùng Gemini Live.
 
 ## Phase 0: Đồng bộ spec
 
@@ -73,19 +73,8 @@ Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) �
 
 ## Phase 2: Giọng nói (spike rủi ro trước)
 
-### Task 4: pyttsx3 giọng Việt (spike + `voice.speak`)
-**Mô tả:** pyttsx3 giờ là **đường TTS duy nhất**, nên đây là rủi ro lớn nhất, làm trước. Bạn cài language pack tiếng Việt (Settings → Time & Language → Speech → thêm giọng). Kiểm tra pyttsx3 có liệt kê giọng `vi-VN` không. Không thấy thì đề xuất cách vòng qua registry (`Speech_OneCore` → `Speech`) và **chờ bạn đồng ý** trước khi sửa. Vẫn không được thì **dừng, hỏi bạn chọn lại hướng TTS**. Sau đó viết `voice.py`: `pick_voice(voices)` chọn giọng `vi-VN`, `make_speaker(engine_factory=...)` trả hàm `speak(text)`. `speak` in chữ rồi đọc. Không có giọng Việt thì cảnh báo một lần, sau đó chỉ in chữ. Lỗi engine thì in lỗi, không ném ra ngoài. `import pyttsx3` nằm trong hàm để test xanh trên Ubuntu.
-
-**Acceptance:**
-- [ ] `pick_voice` chọn đúng giọng `vi-VN` từ danh sách giọng giả; không có thì trả `None`.
-- [ ] Không có giọng Việt: `speak` không gọi engine, chỉ in chữ. Engine giả ném lỗi: `speak` không ném lỗi.
-- [ ] Thủ công: máy đọc được "Xin chào, mình là trợ lý giọng nói" bằng giọng Việt, **trong lúc stream `--no-agent` đang mở**, không lỗi thiết bị, không treo. Treo thì thử chạy pyttsx3 trong luồng riêng, rồi báo bạn.
-
-**Verify:** `python -m pytest -q tests/test_voice.py`; `python -c "from voiceagent.voice import make_speaker; make_speaker()('Xin chào')"`
-
-**Dependencies:** None
-**Files:** `requirements.txt` (thêm `pyttsx3==<bản đã cài>`), `voiceagent/voice.py`, `tests/test_voice.py`
-**Scope:** S
+### Task 4: ~~TTS giọng Việt~~ (bỏ)
+Đã bỏ 2026-11-09: agent chỉ in chữ (SPEC Assumption 6). pyttsx3 không có giọng Việt SAPI; Piper chạy được nhưng giọng đọc không cần cho mục tiêu học. Code cũ giữ ở nhánh `task-04-vietnamese-tts`, không merge.
 
 ### Task 5: Monitor bật/tắt + thu câu nói theo lượt
 **Mô tả:** Thêm `monitor` vào `Params` + `Pipeline.set_monitor`. Callback: monitor tắt thì ghi khối 0 ra tai nghe. Thêm bộ thu câu nói: `start_utterance()` / `stop_utterance() -> bytes | None`. Khi đang giữ lượt, callback chép khối đã khử ồn vào bộ đệm. Lúc dừng thì đóng gói thành WAV 16 kHz mono trong RAM. Câu < 0.3 s trả `None`. `--no-agent` bật monitor sẵn; chế độ thường thì tắt, trừ khi có `--monitor`. Task này sửa `pipeline.py` của B: làm sớm, merge nhanh. Gộp thêm: cờ `--all-filters` bật band-pass + SS (`minstat`, `smoothing=0.5`) + gate, tức cấu hình 5 của spec, vì `Params` mặc định tắt SS và gate nên trước đây không thử realtime được cả chuỗi. Bản đầu dùng `calibrate` + hiệu chuẩn 1 s: phiên 2026-11-02 có 1 s đầu không im lặng (cao hơn ồn ~9 dB), nên giọng bị trừ 6.5 dB. Chuyển sang `minstat`: chạy lại bản ghi đó offline, giọng chỉ giảm 4.4 dB, ồn giảm 29.2 dB.
@@ -129,9 +118,9 @@ Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) �
 **Files:** `voiceagent/voice.py`, `voiceagent/__main__.py`, `tests/test_voice.py`
 **Scope:** S
 
-## Checkpoint 2: Sau Task 4–6b
+## Checkpoint 2: Sau Task 5–6b
 - [ ] Toàn bộ test xanh
-- [ ] Máy đọc được tiếng Việt bằng pyttsx3 khi stream đang mở; nói → thấy đúng chữ
+- [ ] Nói → thấy đúng chữ
 - [ ] Ghi chú chất lượng STT Whisper vs Gemini (đúng bao nhiêu câu, lỗi kiểu gì, thời gian) để so sánh sau khi có bộ lọc
 - [ ] Bạn duyệt trước khi sang Phase 5
 
@@ -289,16 +278,16 @@ Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) �
 **Scope:** S
 
 ### Task 17: `handle_turn` + vòng hội thoại đầy đủ
-**Mô tả:** `handle_turn(text, graph, config, speak, ask_yes_no, log)`: invoke graph, lặp khi còn `__interrupt__` (đọc câu hỏi qua `speak`, `ask_yes_no()` đọc `y`/`n`, resume bằng `Command(resume=ok)`), đọc trả lời, ghi transcript. `recursion_limit=16`; bắt `GraphRecursionError` → đọc "Mình chưa làm được việc này". Bắt lỗi API (mạng, 401, 402, 429, 5xx, timeout) → in rõ, phiên vẫn chạy. Nối vào `__main__`: lượt nói → STT → "đang nghĩ…" → `handle_turn`. Thiếu `DEEPSEEK_API_KEY`: báo rõ, vẫn chạy DSP + STT + in transcript. `InMemorySaver`, `thread_id` = thời gian bắt đầu phiên.
+**Mô tả:** `handle_turn(text, graph, config, out, ask_yes_no, log)`: invoke graph, lặp khi còn `__interrupt__` (in câu hỏi qua `out`, `ask_yes_no()` đọc `y`/`n`, resume bằng `Command(resume=ok)`), in trả lời, ghi transcript. `recursion_limit=16`; bắt `GraphRecursionError` → in "Mình chưa làm được việc này". Bắt lỗi API (mạng, 401, 402, 429, 5xx, timeout) → in rõ, phiên vẫn chạy. Nối vào `__main__`: lượt nói → STT → "đang nghĩ…" → `handle_turn`. Thiếu `DEEPSEEK_API_KEY`: báo rõ, vẫn chạy DSP + STT + in transcript. `InMemorySaver`, `thread_id` = thời gian bắt đầu phiên.
 
 **Acceptance:**
-- [ ] Với graph/speak/ask_yes_no giả: chữ rỗng thì không gọi graph; có chữ thì speak đúng câu trả lời và ghi transcript; có interrupt thì hỏi rồi resume; graph ném lỗi → báo lỗi, phiên vẫn chạy; model luôn gọi tool → câu dự phòng.
+- [ ] Với graph/out/ask_yes_no giả: chữ rỗng thì không gọi graph; có chữ thì in đúng câu trả lời và ghi transcript; có interrupt thì hỏi rồi resume; graph ném lỗi → báo lỗi, phiên vẫn chạy; model luôn gọi tool → câu dự phòng.
 - [ ] Thủ công: 6 kịch bản trong Success Criteria 4 của spec đều đạt.
 - [ ] Thủ công: thiếu key, ngắt mạng, `quit`, Ctrl+C đều thoát hoặc báo lỗi sạch; WAV + transcript được ghi.
 
 **Verify:** `python -m pytest -q`; thủ công: `python -m voiceagent`, chạy 6 kịch bản.
 
-**Dependencies:** Task 4, 6b, 16
+**Dependencies:** Task 6b, 16
 **Files:** `voiceagent/agent.py`, `voiceagent/__main__.py`, `tests/test_agent.py`
 **Scope:** M
 
