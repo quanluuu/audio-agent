@@ -228,6 +228,27 @@ So sánh 2026-11-11 (5 câu Success Criteria 4, không lọc, không quạt):
 - [ ] Cấu hình 3 có STOI ≥ cấu hình 2 ở cả 3 mức SNR.
 - [ ] Không đạt thì báo số liệu và đề xuất chỉnh hằng số. Chỉ sửa tiêu chí khi bạn đồng ý.
 
+**Đề xuất chỉnh tham số (từ A, 2026-11-11, chờ B kiểm bằng STOI):** đổi mặc định `high_hz` 3800 → 7000 và `alpha` 2.0 → 1.0.
+
+Lý do:
+- Phiên `out/20261111-010736` (bật quạt, `--all-filters`, `--stt gemini`): "Mở Notepad" → "mở nút thắt"; tắt lọc thì Gemini nghe đúng "NotePad".
+- Spectrogram raw vs clean: ồn giảm 45 dB, nhưng giọng mất 17 dB ở 4–8 kHz (band-pass cắt ở 3.8 kHz, kiểu điện thoại) và 4–5 dB ở 1–4 kHz. Trong khung có giọng, 81% bin bị cắt > 10 dB: SS `alpha=2` + gate xóa phụ âm bật/xát yếu (`t`, `p`, `d`, `s`), là các âm STT cần để phân biệt từ, nhất là từ tiếng Anh.
+- Chạy lại bản raw offline qua `Pipeline` rồi cho Whisper `small` nhận dạng cả file (5 câu Success Criteria 4):
+
+| Cấu hình | Ồn giảm (dB) | Giọng giảm (dB) | Đúng ý | Ghi chú |
+|---|---|---|---|---|
+| raw | 0 | 0 | 3/5 | |
+| hiện tại: bp 100–3800, SS α=2, gate | 45.2 | 3.2 | 2/5 | hỏng câu 5 ("Điểm sinh Google thể tiếp hạ lụt") |
+| bp 100–7000, SS α=2, gate | 44.7 | 3.1 | 3/5 | Whisper bịa câu ở đoạn im |
+| **bp 100–7000, SS α=1, gate** | 33.0 | 1.9 | 3/5 | câu 3 và 5 đúng nguyên văn; bịa câu ở đoạn im |
+| bp 100–7000, SS α=1, không gate | 13.7 | 1.6 | 3/5 | |
+| chỉ bp 100–7000 | 0.6 | 1.0 | 3/5 | giống raw |
+
+- `high_hz=7000` + `alpha=1` giữ độ đúng bằng raw, vẫn giảm ồn 33 dB, giọng chỉ mất 1.9 dB. Cấu hình hiện tại là cấu hình duy nhất kém hơn raw.
+- "Thủ đô" và "Notepad" sai ở mọi cấu hình, kể cả raw: giới hạn của Whisper `small`, không phải do bộ lọc.
+- Gate tạo đoạn im tuyệt đối, Whisper bịa câu ("Hãy subscribe cho kênh…"). Chạy theo lượt thì ít gặp hơn, nhưng cần để ý.
+- Hạn chế: 1 phiên, nhận dạng cả file (không theo lượt), chỉ Whisper (không Gemini), mức ồn/giọng ước lượng theo phân vị năng lượng khung, chưa đo STOI. Script: `scratchpad/offline_stt.py` (ngoài repo); cần thì A đưa vào `scripts/`.
+
 **Verify:** `python scripts/evaluate.py --clean data/speech.wav --noise data/fan.wav --snr 0 5 10`
 
 **Dependencies:** Task 11
