@@ -29,6 +29,18 @@ def enable_all_filters(pipeline: Pipeline) -> None:
     pipeline.set_noise_gate(True, p.gate_threshold_db)
 
 
+def load_env(path=".env", env=os.environ) -> None:
+    """Read KEY=value lines from .env into env. Variables already set in the shell win."""
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return
+    for line in lines:
+        key, sep, value = line.partition("=")
+        if sep and not key.strip().startswith("#"):
+            env.setdefault(key.strip(), value.strip().strip("'\""))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="voiceagent", description="Khử ồn giọng nói thời gian thực.")
     parser.add_argument("--list-devices", action="store_true", help="in danh sách thiết bị âm thanh rồi thoát")
@@ -41,6 +53,7 @@ def main() -> int:
     parser.add_argument("--stt", choices=["whisper", "gemini"], default="whisper",
                         help="nhận dạng giọng: whisper (local, mặc định) hoặc gemini (cần GEMINI_API_KEY)")
     args = parser.parse_args()
+    load_env()
 
     if args.list_devices:
         print(sd.query_devices())
