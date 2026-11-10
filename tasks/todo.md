@@ -198,7 +198,10 @@ So sánh 2026-11-11 (5 câu Success Criteria 4, không lọc, không quạt):
 ## Checkpoint 3: Sau Task 7–10
 - [x] Toàn bộ test xanh (51/51 trên Windows)
 - [x] Cả chuỗi chạy realtime 2 phút, 0 underrun, < 2 ms/khối — 2026-11-02 `--all-filters` (minstat), 158.0 s, 0 underrun, 0.44 ms/khối. Ồn giảm 35.4 dB, giọng giảm 4.7 dB (ước lượng theo phân vị 20%); phần giảm ở giọng để Task 12 chỉnh
-- [ ] (Sau Task 6) Bật quạt, nói 5 câu ở Task 6 khi bật lọc và khi bypass: so sánh STT, ghi kết quả
+- [x] (Sau Task 6) Bật quạt, nói 5 câu ở Task 6 khi bật lọc và khi bypass: so sánh STT, ghi kết quả — 2026-11-11, `--stt gemini`, bật quạt:
+  - Không lọc: đúng ý 5/5 (1 lỗi chính tả "ổn"/"ồn"), "NotePad" đúng.
+  - `--all-filters` (`out/20261111-010736_transcript.md`): đúng ý 4/5, "Mở Notepad" → "mở nút thắt".
+  - Bộ lọc không giúp Gemini, có thể làm hỏng từ tiếng Anh (khớp ghi nhận của paper: SS làm tăng WER). Mẫu nhỏ (5 câu), chưa đủ kết luận; Task 12 xem lại độ méo giọng.
 - [ ] Bạn duyệt trước khi sang Phase 4
 
 ## Phase 4: Đánh giá
