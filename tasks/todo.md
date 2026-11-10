@@ -97,9 +97,17 @@ Hướng đã chốt: STT (`faster-whisper` mặc định, Gemini tùy chọn) �
 **Acceptance:**
 - [x] Model giả trả segment `" xin"`, `" chào"` → `"xin chào"`; không segment → `""`. Transcript ghi đúng định dạng (file tạm, `encoding="utf-8"`).
 - [x] STT ném lỗi hoặc model không tải được: thông báo rõ, không traceback, stream không dừng, vẫn gõ chữ được.
-- [ ] Thủ công: nói 5 câu tiếng Việt, đúng ý ≥ 4/5. Câu 5 s có chữ trong ≤ 5 s (SPEC Success Criteria 6). Ghi thời gian thực đo. Kém thì thử `WHISPER_MODEL=medium` rồi báo bạn.
+- [x] Thủ công: nói 5 câu tiếng Việt, đúng ý ≥ 4/5. Câu 5 s có chữ trong ≤ 5 s (SPEC Success Criteria 6). Ghi thời gian thực đo. Kém thì thử `WHISPER_MODEL=medium` rồi báo bạn.
 
-Spike 2026-11-09: faster-whisper 1.2.1 + ctranslate2 4.8.4 (4.8.5 mới 7 ngày, chưa ghim) + av 19.0.2. Lần đầu tải model `small` mất ~17 phút (mạng chậm). `av` 19 bỏ `metadata_errors` nên đưa file-like vào bị `TypeError`; chuyển sang đưa mảng numpy. Giọng Piper tổng hợp: nạp model ~3 s; câu 2.8 s ra chữ trong 4.4 s, gần đúng ("mưu" thay "mưa", "ổn" thay "ồn"). Chưa thử giọng thật.
+Spike 2026-11-09: faster-whisper 1.2.1 + ctranslate2 4.8.4 (4.8.5 mới 7 ngày, chưa ghim) + av 19.0.2. Lần đầu tải model `small` mất ~17 phút (mạng chậm). `av` 19 bỏ `metadata_errors` nên đưa file-like vào bị `TypeError`; chuyển sang đưa mảng numpy. Giọng Piper tổng hợp: nạp model ~3 s; câu 2.8 s ra chữ trong 4.4 s, gần đúng ("mưu" thay "mưa", "ổn" thay "ồn"). Thử giọng thật 2026-11-11 (`small`, không `--all-filters`, không quạt), mỗi câu ra chữ ~1 s:
+  - "xin chào" → "Xin chào" ✓; "tôi vừa đi xem phim" → đúng ✓
+  - "tôi tên là quân" → "tùy tên lạc quân" ✗
+  - "hello bạn" → "hơi lúc mà" ✗ (lẫn tiếng Anh); "tôi 2k5" → "tối hài ca nằm" ✗ (tiếng lóng)
+  - Đúng 2/5, chưa đạt ≥ 4/5. Câu 4–5 không phải tiếng Việt chuẩn; cần thử lại bằng câu trong Success Criteria 4.
+Thử lại 2026-11-11 với câu Success Criteria 4: đúng ý 4/5, đạt.
+  - "Thù đồ của Pháp là gì?", "cho mình nghe lại dọc mình": sai chính tả, vẫn hiểu ý ✓
+  - "Còn ồn quá", "Tìm trên Google thời tiết Hà Nội" ✓
+  - "Mở Notepad" → "Mở nút bắt" ✗: tên app tiếng Anh. Sau Task 14 thử `hotwords`/`initial_prompt` chứa tên app trong `ALLOWED_APPS`.
 
 **Verify:** `python -m pytest -q`; thủ công: `python -m voiceagent`, nói 5 câu, mở `out/*_transcript.md`.
 
