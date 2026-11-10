@@ -137,7 +137,7 @@ So sánh 2026-11-11 (5 câu Success Criteria 4, không lọc, không quạt):
 - [x] Toàn bộ test xanh (75/75)
 - [x] Nói → thấy đúng chữ
 - [x] Ghi chú chất lượng STT Whisper vs Gemini (đúng bao nhiêu câu, lỗi kiểu gì, thời gian) để so sánh sau khi có bộ lọc
-- [ ] Bạn duyệt trước khi sang Phase 5
+- [x] Bạn duyệt trước khi sang Phase 5 (2026-11-11)
 
 ## Phase 3: Bộ lọc khử ồn
 
@@ -265,9 +265,11 @@ Lý do:
 **Mô tả:** 4 tool `open_app`, `open_url`, `search_web`, `save_note(notes_dir)` cùng `ALLOWED_APPS` (Open Question 6 của spec). Tool **không** nhận `confirm` và không import LangGraph; xác nhận nằm ở node `confirm` (Task 16). Thêm `describe_action(name, args) -> str`: kiểm tra hợp lệ rồi trả câu hỏi xác nhận, sai thì ném `ValueError`. Mỗi tool vẫn tự kiểm tra lại trước khi làm. `Popen([exe])` không qua shell; `webbrowser.open`; slug an toàn; không ghi đè. Docstring kiểu Google (`Args:`) để LangChain lấy mô tả tham số. Xuất `ACTION_TOOLS`.
 
 **Acceptance:**
-- [ ] `open_app`: ngoài danh sách thì trả lỗi, không gọi Popen. Hợp lệ thì gọi đúng exe. `open_url` từ chối `file://`, `javascript:`, chuỗi không phải URL. `search_web` mã hóa đúng tiếng Việt và dấu cách.
-- [ ] `describe_action`: `open_app("cmd")`, `open_url("file:///C:/")` ném `ValueError`; `open_app("notepad")` trả câu hỏi có "Notepad".
-- [ ] `save_note`: title `../../evil` vẫn nằm trong `notes/`; trùng tên thêm số, không ghi đè.
+- [x] `open_app`: ngoài danh sách thì trả lỗi, không gọi Popen. Hợp lệ thì gọi đúng exe. `open_url` từ chối `file://`, `javascript:`, chuỗi không phải URL. `search_web` mã hóa đúng tiếng Việt và dấu cách.
+- [x] `describe_action`: `open_app("cmd")`, `open_url("file:///C:/")` ném `ValueError`; `open_app("notepad")` trả câu hỏi có "Notepad".
+- [x] `save_note`: title `../../evil` vẫn nằm trong `notes/`; trùng tên thêm số, không ghi đè.
+
+`ALLOWED_APPS` dùng đường dẫn đầy đủ: `notepad`, `calculator` trong `%SystemRoot%\System32`; `paint` là app Store trên Win11, chạy qua alias `%LOCALAPPDATA%\Microsoft\WindowsApps\mspaint.exe`. Chưa mở app thật lần nào.
 
 **Verify:** `python -m pytest -q tests/test_actions.py` (Popen và webbrowser thay bằng hàm giả qua monkeypatch)
 

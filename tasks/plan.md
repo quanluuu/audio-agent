@@ -63,7 +63,7 @@ Thứ tự của A: `0 → 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17`. T
 ### Checkpoint 4: Tiêu chí 8, 9 của spec đạt (hoặc được bạn duyệt chỉnh)
 
 ### Phase 5: Agent (LangGraph + DeepSeek)
-- [ ] Task 14: Hành động ngoài (`actions.py` + `describe_action`)
+- [x] Task 14: Hành động ngoài (`actions.py` + `describe_action`)
 - [ ] Task 13: Tool DSP cho agent
 - [ ] Task 15: Graph `llm ↔ tools` + spike DeepSeek
 - [ ] Task 16: Node `confirm` + `interrupt()`
