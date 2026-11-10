@@ -44,7 +44,7 @@ Thứ tự của A: `0 → 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17`. T
 - [-] Task 4: ~~TTS giọng Việt~~ — bỏ, agent chỉ in chữ (SPEC Assumption 6)
 - [x] Task 5: Monitor bật/tắt + thu câu nói theo lượt (+ cờ `--all-filters`)
 - [x] Task 6: Whisper STT + vòng "nói → thấy chữ"
-- [ ] Task 6b: Gemini STT + cờ `--stt`
+- [x] Task 6b: Gemini STT + cờ `--stt`
 
 ### Checkpoint 2: Nói → thấy đúng chữ (Whisper ≤ 5 s/câu 5 s)
 

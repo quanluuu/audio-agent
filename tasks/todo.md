@@ -120,9 +120,12 @@ Thử lại 2026-11-11 với câu Success Criteria 4: đúng ý 4/5, đạt.
 
 **Acceptance:**
 - [x] 3 nhánh của `make_transcriber` đúng như trên, với hàm Whisper/Gemini giả; thông báo fallback in đúng một lần.
-- [ ] Thủ công: 5 câu ở Task 6 chạy lại với `--stt gemini`. Ghi so sánh (đúng bao nhiêu câu, thời gian) với Whisper.
+- [x] Thủ công: 5 câu ở Task 6 chạy lại với `--stt gemini`. Ghi so sánh (đúng bao nhiêu câu, thời gian) với Whisper.
 
-Docs 2026-11-11 (aistudio.google.com/docs/audio, /pricing): gửi WAV inline (`audio/wav`, ≤ 20 MB/request) qua `client.models.generate_content`; model mặc định `gemini-3.5-flash-lite`. `--stt gemini` thiếu key đã thử: fallback Whisper đúng. Chưa gọi Gemini thật (chưa có key trong shell).
+Docs 2026-11-11 (aistudio.google.com/docs/audio, /pricing): gửi WAV inline (`audio/wav`, ≤ 20 MB/request) qua `client.models.generate_content`; model mặc định `gemini-3.5-flash-lite`. `--stt gemini` thiếu key đã thử: fallback Whisper đúng. Thêm `load_env()` đọc `.env` lúc khởi động (trước đó key trong `.env` không được đọc).
+So sánh 2026-11-11 (5 câu Success Criteria 4, không lọc, không quạt):
+  - Whisper `small`: đúng ý 4/5, ~1 s/câu. Sai "Thù đồ", "dọc mình", mất tên app ("Mở nút bắt").
+  - Gemini `gemini-3.5-flash-lite`: đúng ý 5/5, chậm hơn (~2.7 s/câu khi gọi thử). Chỉ sai "ổn" thay "ồn"; nhận đúng "NotePad".
 
 **Verify:** `python -m pytest -q tests/test_voice.py`; thủ công như trên.
 
@@ -132,8 +135,8 @@ Docs 2026-11-11 (aistudio.google.com/docs/audio, /pricing): gửi WAV inline (`a
 
 ## Checkpoint 2: Sau Task 5–6b
 - [ ] Toàn bộ test xanh
-- [ ] Nói → thấy đúng chữ
-- [ ] Ghi chú chất lượng STT Whisper vs Gemini (đúng bao nhiêu câu, lỗi kiểu gì, thời gian) để so sánh sau khi có bộ lọc
+- [x] Nói → thấy đúng chữ
+- [x] Ghi chú chất lượng STT Whisper vs Gemini (đúng bao nhiêu câu, lỗi kiểu gì, thời gian) để so sánh sau khi có bộ lọc
 - [ ] Bạn duyệt trước khi sang Phase 5
 
 ## Phase 3: Bộ lọc khử ồn
