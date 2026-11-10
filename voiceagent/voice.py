@@ -7,6 +7,9 @@ from typing import Callable
 
 from scipy.io import wavfile
 
+DEFAULT_GEMINI_STT_MODEL = "gemini-3.5-flash-lite"  # cheapest stable model with audio input (2026-11)
+GEMINI_PROMPT = "Chép lại nguyên văn lời nói tiếng Việt trong đoạn audio. Không thêm gì khác."
+
 
 def load_whisper():
     """Load the faster-whisper model once (downloads on first run). Name from WHISPER_MODEL, default small."""
@@ -25,6 +28,36 @@ def whisper_transcribe(model) -> Callable[[bytes], str]:
         return "".join(s.text for s in segments).strip()
 
     return transcribe
+
+
+def gemini_transcribe(client, model: str) -> Callable[[bytes], str]:
+    """Return transcribe(wav_bytes) -> text, sending the WAV inline to Gemini."""
+
+    def transcribe(wav_bytes: bytes) -> str:
+        part = {"inline_data": {"data": wav_bytes, "mime_type": "audio/wav"}}
+        response = client.models.generate_content(model=model, contents=[GEMINI_PROMPT, part])
+        return (response.text or "").strip()
+
+    return transcribe
+
+
+def _make_gemini(key: str):
+    from google import genai  # optional backend: a missing package falls back to Whisper
+    return genai.Client(api_key=key)
+
+
+def make_transcriber(backend: str, env, load_whisper=load_whisper, make_gemini=_make_gemini,
+                     out=print) -> Callable[[bytes], str]:
+    """Pick the STT backend for --stt. Gemini without a key or package falls back to Whisper."""
+    if backend == "gemini":
+        try:
+            key = env.get("GEMINI_API_KEY")
+            if not key:
+                raise RuntimeError("thiếu GEMINI_API_KEY")
+            return gemini_transcribe(make_gemini(key), env.get("GEMINI_STT_MODEL") or DEFAULT_GEMINI_STT_MODEL)
+        except Exception as e:
+            out(f"Không dùng được Gemini STT ({e}), chuyển sang Whisper.")
+    return whisper_transcribe(load_whisper())
 
 
 def append_transcript(path, speaker: str, text: str) -> None:

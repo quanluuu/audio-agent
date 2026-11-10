@@ -4,7 +4,8 @@ from types import SimpleNamespace
 import numpy as np
 from scipy.io import wavfile
 
-from voiceagent.voice import append_transcript, listen_turn, whisper_transcribe
+from voiceagent.voice import (DEFAULT_GEMINI_STT_MODEL, append_transcript, gemini_transcribe, listen_turn,
+                              make_transcriber, whisper_transcribe)
 
 
 def wav(samples):
@@ -78,3 +79,70 @@ def test_listen_turn_skips_short_or_silent_utterance(tmp_path):
     assert listen_turn(None, lambda wav: "x", path, out=lines.append) == ""
     assert listen_turn(b"RIFF", lambda wav: "", path, out=lines.append) == ""
     assert not path.exists()
+
+
+class FakeClient:
+    def __init__(self, text):
+        self.text, self.calls = text, []
+        self.models = self
+
+    def generate_content(self, model, contents):
+        self.calls.append((model, contents))
+        return SimpleNamespace(text=self.text)
+
+
+def test_gemini_sends_inline_wav_with_prompt():
+    client = FakeClient(" xin chào \n")
+    assert gemini_transcribe(client, "m1")(WAV) == "xin chào"
+    model, (prompt, part) = client.calls[0]
+    assert model == "m1" and "tiếng Việt" in prompt
+    assert part == {"inline_data": {"data": WAV, "mime_type": "audio/wav"}}
+
+
+def test_gemini_empty_response_gives_empty_string():
+    assert gemini_transcribe(FakeClient(None), "m1")(WAV) == ""
+
+
+def no_gemini(key):
+    raise AssertionError("whisper backend must not touch Gemini")
+
+
+def test_whisper_backend_never_calls_gemini():
+    t = make_transcriber("whisper", {"GEMINI_API_KEY": "k"}, lambda: FakeModel([" a"]), no_gemini)
+    assert t(WAV) == "a"
+
+
+def test_gemini_backend_with_key_uses_gemini_default_model():
+    clients = []
+
+    def make_gemini(key):
+        clients.append((key, FakeClient("b")))
+        return clients[-1][1]
+
+    t = make_transcriber("gemini", {"GEMINI_API_KEY": "k"}, lambda: 1 / 0, make_gemini)
+    assert t(WAV) == "b"
+    assert clients[0][0] == "k"
+    assert clients[0][1].calls[0][0] == DEFAULT_GEMINI_STT_MODEL
+
+
+def test_gemini_model_comes_from_env():
+    client = FakeClient("b")
+    make_transcriber("gemini", {"GEMINI_API_KEY": "k", "GEMINI_STT_MODEL": "m2"}, None, lambda key: client)(WAV)
+    assert client.calls[0][0] == "m2"
+
+
+def test_gemini_without_key_falls_back_to_whisper_once():
+    lines = []
+    t = make_transcriber("gemini", {}, lambda: FakeModel([" a"]), no_gemini, out=lines.append)
+    assert t(WAV) == "a"
+    assert sum("chuyển sang Whisper" in line for line in lines) == 1
+
+
+def test_gemini_import_error_falls_back_to_whisper():
+    def broken(key):
+        raise ImportError("No module named 'google.genai'")
+
+    lines = []
+    t = make_transcriber("gemini", {"GEMINI_API_KEY": "k"}, lambda: FakeModel([" a"]), broken, out=lines.append)
+    assert t(WAV) == "a"
+    assert sum("chuyển sang Whisper" in line for line in lines) == 1

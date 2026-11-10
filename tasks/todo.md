@@ -119,8 +119,10 @@ Thử lại 2026-11-11 với câu Success Criteria 4: đúng ý 4/5, đạt.
 **Mô tả:** Đầu task, đọc docs chính thức `google-genai` về gửi audio inline, chọn model rẻ nhất nhận audio cho `GEMINI_STT_MODEL` (Open Question 7). Viết `gemini_transcribe(client, model)` với prompt "chép lại nguyên văn tiếng Việt, không thêm gì". Viết `make_transcriber(backend, env, load_whisper, make_gemini)`: `"whisper"` không bao giờ gọi Gemini; `"gemini"` có key thì dùng Gemini; `"gemini"` thiếu key hoặc không import được `google-genai` thì in một lần "Không dùng được Gemini STT, chuyển sang Whisper" và dùng Whisper. Thêm cờ `--stt whisper|gemini` (mặc định `whisper`).
 
 **Acceptance:**
-- [ ] 3 nhánh của `make_transcriber` đúng như trên, với hàm Whisper/Gemini giả; thông báo fallback in đúng một lần.
+- [x] 3 nhánh của `make_transcriber` đúng như trên, với hàm Whisper/Gemini giả; thông báo fallback in đúng một lần.
 - [ ] Thủ công: 5 câu ở Task 6 chạy lại với `--stt gemini`. Ghi so sánh (đúng bao nhiêu câu, thời gian) với Whisper.
+
+Docs 2026-11-11 (aistudio.google.com/docs/audio, /pricing): gửi WAV inline (`audio/wav`, ≤ 20 MB/request) qua `client.models.generate_content`; model mặc định `gemini-3.5-flash-lite`. `--stt gemini` thiếu key đã thử: fallback Whisper đúng. Chưa gọi Gemini thật (chưa có key trong shell).
 
 **Verify:** `python -m pytest -q tests/test_voice.py`; thủ công như trên.
 

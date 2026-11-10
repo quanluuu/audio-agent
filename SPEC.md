@@ -7,7 +7,7 @@
 4. LLM chat là **DeepSeek Flash**, gọi qua `ChatDeepSeek` (gói `langchain-deepseek`) bên trong một graph **LangGraph**. Key nằm trong biến môi trường `DEEPSEEK_API_KEY`. Tên model đọc từ `DEEPSEEK_MODEL`, mặc định `deepseek-v4-flash`. Tên này phải kiểm lại với docs chính thức ở đầu task chat. DeepSeek V4/V4.1 Flash **không nhận audio**: đầu vào chỉ có chữ và ảnh. Vì vậy STT dùng hệ khác (giả định 5).
 5. **STT có 2 backend**, chọn bằng cờ `--stt whisper|gemini`:
    - `whisper` (mặc định): `faster-whisper` chạy local trên CPU, `compute_type="int8"`, `language="vi"`. Tên model đọc từ `WHISPER_MODEL`, mặc định `small` (~460 MB, tải về ở lần chạy đầu). Không cần key, chạy được khi không có mạng.
-   - `gemini`: Gemini nhận audio qua `google-genai`, key nằm trong `GEMINI_API_KEY`. Tên model đọc từ `GEMINI_STT_MODEL`, có giá trị mặc định.
+   - `gemini`: Gemini nhận audio qua `google-genai`, key nằm trong `GEMINI_API_KEY`. Tên model đọc từ `GEMINI_STT_MODEL`, mặc định `gemini-3.5-flash-lite` (rẻ nhất nhận audio, $0.30/1M token audio, 32 token/giây).
 6. Agent **không nói**: chỉ in câu trả lời ra màn hình. Không có TTS (bỏ pyttsx3/Piper vì máy không có giọng Việt SAPI, và giọng đọc không phục vụ mục tiêu học DSP + agent).
 7. Mỗi phiên ngắn (vài phút đến vài chục phút). Bản ghi giữ trong RAM rồi ghi WAV khi thoát.
 8. Ồn nền tương đối ổn định (quạt, máy lạnh, tiếng rè). Ồn thay đổi nhanh (người nói chuyện, nhạc) nằm ngoài khả năng của DSP cổ điển.
@@ -422,4 +422,4 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
 4. Ngưỡng "STOI giảm ≤ 0.02" và các hằng số minstat (0.85, 96 khung, bias 1.5) là giá trị khởi đầu tôi chọn, không lấy từ paper. Có thể cần chỉnh sau khi chạy `evaluate.py` lần đầu.
 5. Muốn đo luôn ảnh hưởng của khử ồn lên nhận dạng giọng nói không? Cách làm: chạy STT trên giọng ồn và giọng đã khử ồn, rồi tính WER so với câu đọc mẫu. Đây đúng là thí nghiệm của paper. Có 2 backend thì so được cả Whisper với Gemini. Với Whisper thì chạy offline, không tốn tiền. Việc này cần thêm script.
 6. Danh sách `ALLOWED_APPS` mặc định (`notepad`, `calculator`, `paint`) có đủ không? Bạn muốn thêm app nào, kèm đường dẫn exe?
-7. Model Gemini cho STT (`GEMINI_STT_MODEL`): chọn ở task STT sau khi đọc docs. Cần model rẻ nhất nhận được audio.
+7. ~~Model Gemini cho STT~~ — chốt 2026-11-11: `gemini-3.5-flash-lite` (Stable, $0.30/1M token audio). Có `gemini-3.5-transcribe` chuyên STT nhưng đắt hơn ($2.00/1M).

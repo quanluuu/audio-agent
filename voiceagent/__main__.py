@@ -1,6 +1,7 @@
-"""CLI entry: python -m voiceagent [--list-devices] [--input N] [--output N] [--no-agent] [--monitor] [--all-filters]"""
+"""CLI entry: python -m voiceagent [--list-devices] [--input N] [--output N] [--no-agent] [--monitor] [--all-filters] [--stt whisper|gemini]"""
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -9,7 +10,7 @@ import sounddevice as sd
 
 from voiceagent.audio import UtteranceRecorder, open_stream, save_recording
 from voiceagent.pipeline import Pipeline
-from voiceagent.voice import append_transcript, listen_turn, load_whisper, whisper_transcribe
+from voiceagent.voice import append_transcript, listen_turn, make_transcriber
 
 
 def format_status(pipeline: Pipeline) -> str:
@@ -37,6 +38,8 @@ def main() -> int:
     parser.add_argument("--monitor", action="store_true", help="nghe lại giọng mình qua tai nghe")
     parser.add_argument("--all-filters", action="store_true",
                         help="bật cả band-pass + spectral subtraction (minstat) + noise gate")
+    parser.add_argument("--stt", choices=["whisper", "gemini"], default="whisper",
+                        help="nhận dạng giọng: whisper (local, mặc định) hoặc gemini (cần GEMINI_API_KEY)")
     args = parser.parse_args()
 
     if args.list_devices:
@@ -62,7 +65,7 @@ def main() -> int:
     transcribe = None
     if not args.no_agent:
         try:
-            transcribe = whisper_transcribe(load_whisper())
+            transcribe = make_transcriber(args.stt, os.environ)
         except Exception as e:  # no wheel, no network on first download: still usable by typing
             print(f"Không tải được model Whisper ({e}). Vẫn gõ chữ được.")
 
