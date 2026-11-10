@@ -281,8 +281,8 @@ Lý do:
 **Mô tả:** 8 hàm tool trong `agent.py` (`get_status`, `calibrate_noise`, `set_bandpass`, `set_spectral_subtraction`, `set_noise_estimator`, `set_noise_gate`, `set_bypass`, `set_monitor`). Tạo bởi `make_dsp_tools(pipeline)`, mỗi hàm có type hint + docstring kiểu Google (`Args:`), trả dict. Lỗi tham số trả `{"error": ...}`. Chưa cần LangGraph.
 
 **Acceptance:**
-- [ ] Tham số hợp lệ đổi được Params; `get_status` trả Params + Meters.
-- [ ] Tham số sai trả `{"error": ...}`, Params giữ nguyên, không ném exception.
+- [x] Tham số hợp lệ đổi được Params; `get_status` trả Params + Meters.
+- [x] Tham số sai trả `{"error": ...}`, Params giữ nguyên, không ném exception.
 
 **Verify:** `python -m pytest -q tests/test_agent.py`
 
