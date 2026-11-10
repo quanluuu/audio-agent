@@ -294,9 +294,11 @@ Lý do:
 **Mô tả:** Đầu task: cài `langgraph` 1.x và `langchain-deepseek`, ghim phiên bản. Đọc docs chính thức LangGraph đúng bản đã cài (đường import `StateGraph`, `MessagesState`, `interrupt`, `Command`, `InMemorySaver`). Đọc docs DeepSeek (`api-docs.deepseek.com`) để chốt tên model (Open Question 1 của spec). Spike: gọi thật `ChatDeepSeek(...).bind_tools(dsp_tools)` với "tắt khử ồn đi", kiểm tra trả về tool call `set_bypass`. Lỗi tool calling thì báo bạn trước khi đổi gói. Sau đó viết `AgentState`, `SYSTEM_PROMPT`, node `llm`, node `tools` tự viết (tuần tự, `ToolMessage` cho mọi tool call, tên lạ / sai tham số → `{"error"}`, in `[tool] …`), `route_after_llm` (chưa có nhánh `confirm`), `build_graph(model, dsp_tools, action_tools, checkpointer)`.
 
 **Acceptance:**
-- [ ] Model giả không trả tool call: graph kết thúc ở `END`, trả đúng câu.
-- [ ] Model giả gọi `set_bypass(enabled=True)`: Params đổi, `ToolMessage` đúng `tool_call_id`, model được gọi 2 lần. Tên tool lạ / thiếu tham số: `ToolMessage` chứa `error`, graph không ném lỗi.
-- [ ] `convert_to_openai_tool(set_bandpass)` có 3 tham số bắt buộc, mỗi tham số có mô tả. Hai lượt cùng `thread_id`: lượt 2 thấy message lượt 1.
+- [x] Model giả không trả tool call: graph kết thúc ở `END`, trả đúng câu.
+- [x] Model giả gọi `set_bypass(enabled=True)`: Params đổi, `ToolMessage` đúng `tool_call_id`, model được gọi 2 lần. Tên tool lạ / thiếu tham số: `ToolMessage` chứa `error`, graph không ném lỗi.
+- [x] `convert_to_openai_tool(set_bandpass)` có 3 tham số bắt buộc, mỗi tham số có mô tả. Hai lượt cùng `thread_id`: lượt 2 thấy message lượt 1.
+
+Docs 2026-11-11: model `deepseek-flash` (V4.1-Flash-1017), base `https://api.deepseek.com`, thinking bật sẵn → tắt bằng `extra_body`. Bật thinking + tools thì phải gửi lại `reasoning_content` mỗi lượt, không thì 400. Giá off-peak $0.15/1M input, $0.6/1M output. Cài: langgraph 1.2.17, langchain-deepseek 1.1.1, langchain-core 1.7.1 (bản ≥ 2 tuần). Import trong bản đã cài khớp: `langgraph.graph` (`StateGraph`, `MessagesState`, `START`, `END`), `langgraph.types` (`interrupt`, `Command`), `langgraph.checkpoint.memory.InMemorySaver`. Spike gọi thật: chờ `DEEPSEEK_API_KEY` trong `.env`.
 
 **Verify:** `python -m pytest -q tests/test_agent.py`; spike thủ công với `DEEPSEEK_API_KEY`.
 

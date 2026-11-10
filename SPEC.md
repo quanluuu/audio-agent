@@ -4,7 +4,7 @@
 1. Chạy local trên Windows 11, một người dùng, Python 3.13.
 2. Âm thanh mono, 16 kHz, float32 trong [-1, 1]. Micro và loa/tai nghe mặc định của hệ điều hành (chọn thiết bị khác qua cờ `--input`/`--output`).
 3. Người dùng đeo **tai nghe**. Dùng loa ngoài mà bật monitor thì giọng lọt lại vào micro, gây hú. Không làm khử tiếng vang (echo cancellation).
-4. LLM chat là **DeepSeek Flash**, gọi qua `ChatDeepSeek` (gói `langchain-deepseek`) bên trong một graph **LangGraph**. Key nằm trong biến môi trường `DEEPSEEK_API_KEY`. Tên model đọc từ `DEEPSEEK_MODEL`, mặc định `deepseek-v4-flash`. Tên này phải kiểm lại với docs chính thức ở đầu task chat. DeepSeek V4/V4.1 Flash **không nhận audio**: đầu vào chỉ có chữ và ảnh. Vì vậy STT dùng hệ khác (giả định 5).
+4. LLM chat là **DeepSeek Flash**, gọi qua `ChatDeepSeek` (gói `langchain-deepseek`) bên trong một graph **LangGraph**. Key nằm trong biến môi trường `DEEPSEEK_API_KEY`. Tên model đọc từ `DEEPSEEK_MODEL`, mặc định `deepseek-flash` (docs 2026-11-11: hiện chạy DeepSeek-V4.1-Flash-1017; `deepseek-v4-flash` đã ngừng, chỉ còn là alias). Thinking mode bật sẵn ở `deepseek-flash`, nên phải tắt bằng `extra_body={"thinking": {"type": "disabled"}}`. DeepSeek V4/V4.1 Flash **không nhận audio**: đầu vào chỉ có chữ và ảnh. Vì vậy STT dùng hệ khác (giả định 5).
 5. **STT có 2 backend**, chọn bằng cờ `--stt whisper|gemini`:
    - `whisper` (mặc định): `faster-whisper` chạy local trên CPU, `compute_type="int8"`, `language="vi"`. Tên model đọc từ `WHISPER_MODEL`, mặc định `small` (~460 MB, tải về ở lần chạy đầu). Không cần key, chạy được khi không có mạng.
    - `gemini`: Gemini nhận audio qua `google-genai`, key nằm trong `GEMINI_API_KEY`. Tên model đọc từ `GEMINI_STT_MODEL`, mặc định `gemini-3.5-flash-lite` (rẻ nhất nhận audio, $0.30/1M token audio, 32 token/giây).
@@ -149,7 +149,7 @@ lượt nói ──► STT ──► graph.invoke(HumanMessage) ──► in ch�
                             └─────────────────────────┘
 ```
 
-**LLM:** `ChatDeepSeek(model=DEEPSEEK_MODEL, timeout=30, max_retries=1)` từ `langchain-deepseek`, key lấy từ `DEEPSEEK_API_KEY`. Gọi `.bind_tools(ALL_TOOLS)` một lần lúc khởi động. LangChain tự tạo schema từ type hint và docstring, nên không viết schema tay.
+**LLM:** `ChatDeepSeek(model=DEEPSEEK_MODEL, timeout=30, max_retries=1, extra_body={"thinking": {"type": "disabled"}})` từ `langchain-deepseek`, key lấy từ `DEEPSEEK_API_KEY`. Gọi `.bind_tools(ALL_TOOLS)` một lần lúc khởi động. LangChain tự tạo schema từ type hint và docstring, nên không viết schema tay.
 
 **State:** `AgentState(MessagesState)` thêm trường `preset: dict[str, dict]`. Trường này ánh xạ `tool_call_id` → kết quả đặt trước (bị từ chối hoặc không hợp lệ), do node `confirm` ghi.
 
@@ -416,7 +416,7 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
 | Nhận dạng sai dẫn tới hành động sai | Med | Luôn xác nhận y/n bằng bàn phím, có danh sách cho phép, không có shell. |
 
 ## Open Questions
-1. Model DeepSeek: bạn nhắc tới `deepseek-v4.1-flash-1017`. Trên API chính thức của DeepSeek, model này có thể chỉ gọi được qua alias `deepseek-v4-flash`. Mặc định dùng alias đó, và chốt tên ở task chat sau khi đọc docs. Bạn có cần ghim đúng phiên bản 1017 không? Nếu cần, có thể phải gọi qua nhà cung cấp khác (Cloudflare, Google Cloud).
+1. ~~Model DeepSeek~~ — chốt 2026-11-11: `deepseek-flash`. Docs ghi model này đang chạy DeepSeek-V4.1-Flash-1017, nhưng không có id riêng để ghim bản 1017.
 2. ~~Độ trễ micro → tai nghe khi bật monitor (thường 50–150 ms trên Windows) có chấp nhận được không?~~ Đã trả lời 2026-11-02: chấp nhận được, theo cảm nhận khi nghe thử `--no-agent`. Chưa đo số ms.
 3. Có cần báo cáo/đồ thị (spectrogram trước/sau) cho bài tập không? Spec hiện không có `matplotlib`.
 4. Ngưỡng "STOI giảm ≤ 0.02" và các hằng số minstat (0.85, 96 khung, bias 1.5) là giá trị khởi đầu tôi chọn, không lấy từ paper. Có thể cần chỉnh sau khi chạy `evaluate.py` lần đầu.
