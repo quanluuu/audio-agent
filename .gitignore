@@ -1,4 +1,6 @@
 out/
+graphify-out/
+models/
 data/
 notes/
 .env
