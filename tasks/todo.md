@@ -134,7 +134,7 @@ So sánh 2026-11-11 (5 câu Success Criteria 4, không lọc, không quạt):
 **Scope:** S
 
 ## Checkpoint 2: Sau Task 5–6b
-- [ ] Toàn bộ test xanh
+- [x] Toàn bộ test xanh (75/75)
 - [x] Nói → thấy đúng chữ
 - [x] Ghi chú chất lượng STT Whisper vs Gemini (đúng bao nhiêu câu, lỗi kiểu gì, thời gian) để so sánh sau khi có bộ lọc
 - [ ] Bạn duyệt trước khi sang Phase 5
