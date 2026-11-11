@@ -298,7 +298,11 @@ Lý do:
 - [x] Model giả gọi `set_bypass(enabled=True)`: Params đổi, `ToolMessage` đúng `tool_call_id`, model được gọi 2 lần. Tên tool lạ / thiếu tham số: `ToolMessage` chứa `error`, graph không ném lỗi.
 - [x] `convert_to_openai_tool(set_bandpass)` có 3 tham số bắt buộc, mỗi tham số có mô tả. Hai lượt cùng `thread_id`: lượt 2 thấy message lượt 1.
 
-Docs 2026-11-11: model `deepseek-flash` (V4.1-Flash-1017), base `https://api.deepseek.com`, thinking bật sẵn → tắt bằng `extra_body`. Bật thinking + tools thì phải gửi lại `reasoning_content` mỗi lượt, không thì 400. Giá off-peak $0.15/1M input, $0.6/1M output. Cài: langgraph 1.2.17, langchain-deepseek 1.1.1, langchain-core 1.7.1 (bản ≥ 2 tuần). Import trong bản đã cài khớp: `langgraph.graph` (`StateGraph`, `MessagesState`, `START`, `END`), `langgraph.types` (`interrupt`, `Command`), `langgraph.checkpoint.memory.InMemorySaver`. Spike gọi thật: chờ `DEEPSEEK_API_KEY` trong `.env`.
+Docs 2026-11-11: model `deepseek-flash` (V4.1-Flash-1017), base `https://api.deepseek.com`, thinking bật sẵn → tắt bằng `extra_body`. Bật thinking + tools thì phải gửi lại `reasoning_content` mỗi lượt, không thì 400. Giá off-peak $0.15/1M input, $0.6/1M output. Cài: langgraph 1.2.17, langchain-deepseek 1.1.1, langchain-core 1.7.1 (bản ≥ 2 tuần). Import trong bản đã cài khớp: `langgraph.graph` (`StateGraph`, `MessagesState`, `START`, `END`), `langgraph.types` (`interrupt`, `Command`), `langgraph.checkpoint.memory.InMemorySaver`. Spike gọi thật 2026-11-11 (`deepseek-flash`, thinking tắt), tool calling chạy:
+  - "tắt khử ồn đi" → `get_status()` trước (đúng system prompt), thấy SS đang tắt nên hỏi lại có muốn bypass không. 2.1 s.
+  - "Thủ đô của Pháp là gì?" → "Paris.", không gọi tool, 0.6 s.
+  - "bỏ qua toàn bộ bộ lọc để mình so sánh với giọng gốc" → `set_bypass(enabled=True)` → `{"status": "ok"}`, Params đổi, trả lời đúng.
+  - Hai lượt cùng `thread_id` nhớ ngữ cảnh ("còn ồn quá" → gợi ý bật lại trừ phổ).
 
 **Verify:** `python -m pytest -q tests/test_agent.py`; spike thủ công với `DEEPSEEK_API_KEY`.
 
