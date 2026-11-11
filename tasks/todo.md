@@ -314,9 +314,11 @@ Docs 2026-11-11: model `deepseek-flash` (V4.1-Flash-1017), base `https://api.dee
 **Mô tả:** Thêm trường `preset` vào `AgentState`, node `confirm`, nhánh `confirm` trong `route_after_llm` (có ít nhất một tool thuộc `ACTION_TOOLS`). `confirm` gọi `describe_action`: sai thì ghi `preset[id] = {"error"}` và không hỏi; hợp lệ thì `interrupt({"question": …})`, từ chối thì `preset[id] = {"status": "cancelled"}`. `confirm` **không có tác dụng phụ** (resume chạy lại node). `tools` dùng `preset` nếu có, rồi xóa `preset`.
 
 **Acceptance:**
-- [ ] `open_app("notepad")`: `invoke` trả `__interrupt__` có câu hỏi. Resume `True` → `Popen` gọi đúng 1 lần. Resume `False` → không gọi, `ToolMessage` chứa `cancelled`.
-- [ ] `open_app("cmd")`: không interrupt, `ToolMessage` chứa `error`, không gọi `Popen`.
-- [ ] Một `AIMessage` có 2 tool hành động: 2 interrupt; đồng ý cái đầu, từ chối cái sau → chỉ tool đầu chạy, đúng 1 lần.
+- [x] `open_app("notepad")`: `invoke` trả `__interrupt__` có câu hỏi. Resume `True` → `Popen` gọi đúng 1 lần. Resume `False` → không gọi, `ToolMessage` chứa `cancelled`.
+- [x] `open_app("cmd")`: không interrupt, `ToolMessage` chứa `error`, không gọi `Popen`.
+- [x] Một `AIMessage` có 2 tool hành động: 2 interrupt; đồng ý cái đầu, từ chối cái sau → chỉ tool đầu chạy, đúng 1 lần.
+
+DeepSeek thật 2026-11-11: "mở nút pát giúp mình" (lỗi STT giả lập) → `interrupt` hỏi "Mình sẽ mở Notepad, đồng ý không?"; từ chối → `{"status": "cancelled"}`, không gọi `Popen`.
 
 **Verify:** `python -m pytest -q tests/test_agent.py`
 
