@@ -330,9 +330,12 @@ DeepSeek thật 2026-11-11: "mở nút pát giúp mình" (lỗi STT giả lập)
 **Mô tả:** `handle_turn(text, graph, config, out, ask_yes_no, log)`: invoke graph, lặp khi còn `__interrupt__` (in câu hỏi qua `out`, `ask_yes_no()` đọc `y`/`n`, resume bằng `Command(resume=ok)`), in trả lời, ghi transcript. `recursion_limit=16`; bắt `GraphRecursionError` → in "Mình chưa làm được việc này". Bắt lỗi API (mạng, 401, 402, 429, 5xx, timeout) → in rõ, phiên vẫn chạy. Nối vào `__main__`: lượt nói → STT → "đang nghĩ…" → `handle_turn`. Thiếu `DEEPSEEK_API_KEY`: báo rõ, vẫn chạy DSP + STT + in transcript. `InMemorySaver`, `thread_id` = thời gian bắt đầu phiên.
 
 **Acceptance:**
-- [ ] Với graph/out/ask_yes_no giả: chữ rỗng thì không gọi graph; có chữ thì in đúng câu trả lời và ghi transcript; có interrupt thì hỏi rồi resume; graph ném lỗi → báo lỗi, phiên vẫn chạy; model luôn gọi tool → câu dự phòng.
+- [x] Với graph/out/ask_yes_no giả: chữ rỗng thì không gọi graph; có chữ thì in đúng câu trả lời và ghi transcript; có interrupt thì hỏi rồi resume; graph ném lỗi → báo lỗi, phiên vẫn chạy; model luôn gọi tool → câu dự phòng.
 - [ ] Thủ công: 6 kịch bản trong Success Criteria 4 của spec đều đạt.
 - [ ] Thủ công: thiếu key, ngắt mạng, `quit`, Ctrl+C đều thoát hoặc báo lỗi sạch; WAV + transcript được ghi.
+
+Thêm `_close_dangling_tool_calls`: vượt `recursion_limit` ngay sau node `llm` để lại tool call chưa có `ToolMessage`, lượt sau DeepSeek sẽ trả 400. Có test.
+Chạy thử 2026-11-11 bằng chữ gõ (DeepSeek thật): "Thủ đô của Pháp" → đúng; "mở notepad" → hỏi y/n, `n` → `cancelled`; "còn ồn quá" → `get_status` rồi `set_spectral_subtraction(True, 2, 0.02, 0.3)`; transcript ghi đủ. `DEEPSEEK_API_KEY=` rỗng → báo thiếu key, phiên vẫn chạy. Chưa thử bằng giọng nói, ngắt mạng, Ctrl+C.
 
 **Verify:** `python -m pytest -q`; thủ công: `python -m voiceagent`, chạy 6 kịch bản.
 

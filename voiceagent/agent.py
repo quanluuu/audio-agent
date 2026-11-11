@@ -3,14 +3,16 @@
 import json
 from dataclasses import asdict
 
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, MessagesState, StateGraph
-from langgraph.types import interrupt
+from langgraph.types import Command, interrupt
 
 from voiceagent.actions import describe_action
 
 from voiceagent.pipeline import Pipeline
 
+FALLBACK_REPLY = "Mình chưa làm được việc này."
 DEFAULT_DEEPSEEK_MODEL = "deepseek-flash"  # per api-docs.deepseek.com 2026-11: deepseek-v4-flash is a retired alias
 
 SYSTEM_PROMPT = """Bạn là trợ lý giọng nói tiếng Việt. Câu trả lời hiện trên terminal, nên giữ ngắn (1-3 câu), không dùng markdown hay danh sách.
@@ -173,3 +175,40 @@ def build_graph(model, dsp_tools: list, action_tools: list, checkpointer, out=pr
     graph.add_edge("confirm", "tools")
     graph.add_edge("tools", "llm")
     return graph.compile(checkpointer=checkpointer)
+
+
+_API_HINTS = {401: "sai DEEPSEEK_API_KEY", 402: "hết số dư DeepSeek", 429: "gọi quá nhanh (429), thử lại sau"}
+
+
+def _close_dangling_tool_calls(graph, config) -> None:
+    """After an aborted run, answer unanswered tool calls so the next request is valid for the API."""
+    messages = graph.get_state(config).values.get("messages", [])
+    if messages and isinstance(messages[-1], AIMessage) and messages[-1].tool_calls:
+        graph.update_state(config, {"messages": [
+            ToolMessage(json.dumps({"error": "bị dừng"}), tool_call_id=c["id"]) for c in messages[-1].tool_calls]},
+            as_node="tools")
+
+
+def handle_turn(text: str, graph, config: dict, out=print, ask_yes_no=None, log=lambda who, text: None) -> str:
+    """Run one user turn through the graph, asking y/n for each interrupt. Returns the reply ("" on failure).
+
+    Never raises for API/network failures: the session must survive a bad turn.
+    """
+    if not text.strip():
+        return ""
+    try:
+        result = graph.invoke({"messages": [HumanMessage(text)]}, config)
+        while result.get("__interrupt__"):
+            out(f"Agent: {result['__interrupt__'][0].value['question']} (y/n)")
+            result = graph.invoke(Command(resume=ask_yes_no()), config)
+        answer = result["messages"][-1].content
+    except GraphRecursionError:  # model kept calling tools: stop instead of looping and spending
+        _close_dangling_tool_calls(graph, config)
+        answer = FALLBACK_REPLY
+    except Exception as e:  # network, 401/402/429/5xx, timeout: report and keep the session
+        hint = _API_HINTS.get(getattr(e, "status_code", None), "")
+        out(f"Lỗi agent{': ' + hint if hint else ''} ({type(e).__name__}: {e}). Lượt này bỏ qua.")
+        return ""
+    out(f"Agent: {answer}")
+    log("Agent", answer)
+    return answer
