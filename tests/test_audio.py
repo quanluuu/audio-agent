@@ -112,6 +112,12 @@ def test_save_recording_writes_two_wavs(tmp_path):
         assert len(data) == 512
 
 
+def test_save_recording_uses_given_stamp(tmp_path):
+    raw_path, clean_path = save_recording([], [], tmp_path, SR, stamp="20260101-000000")
+    assert raw_path.name == "20260101-000000_raw.wav"
+    assert clean_path.name == "20260101-000000_clean.wav"
+
+
 def run_cli(*args):
     return subprocess.run(
         [sys.executable, "-m", "voiceagent", *args],

@@ -67,11 +67,11 @@ def open_stream(pipeline: Pipeline, raw: list, clean: list, input_device=None, o
     )
 
 
-def save_recording(raw: list, clean: list, out_dir, sr: int) -> tuple[Path, Path]:
+def save_recording(raw: list, clean: list, out_dir, sr: int, stamp: str | None = None) -> tuple[Path, Path]:
     """Write <timestamp>_raw.wav and <timestamp>_clean.wav as float32 (no clipping, no resampling)."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    stamp = time.strftime("%Y%m%d-%H%M%S")
+    stamp = stamp or time.strftime("%Y%m%d-%H%M%S")
     paths = out_dir / f"{stamp}_raw.wav", out_dir / f"{stamp}_clean.wav"
     for path, blocks in zip(paths, (raw, clean)):
         data = np.concatenate(blocks) if blocks else np.zeros(0, np.float32)

@@ -2,5 +2,12 @@ numpy==2.5.3
 scipy==1.18.1
 sounddevice==0.5.6
 google-genai==2.30.1
+faster-whisper==1.2.1
+# 4.8.5 (2026-11-02) is under 2 weeks old at pin time; bump after review
+ctranslate2==4.8.4
+langgraph==1.2.17
+langchain-deepseek==1.1.1
+# 1.7.2+ (2026-10-29 on) were under 2 weeks old at pin time
+langchain-core==1.7.1
 pystoi==0.4.1
 pytest==9.1.1
