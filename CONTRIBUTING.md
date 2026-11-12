@@ -4,20 +4,22 @@ Dự án có 2 người: **A** dùng Windows, **B** dùng Ubuntu. Đọc [SPEC.m
 
 ## 1. Phân công: chia theo tầng
 
-| | A (Windows): Giọng nói + Agent | B (Ubuntu): DSP + Đánh giá |
+| | A (Windows): Giọng nói + Agent + GUI | B (Ubuntu): DSP + Đánh giá + nghiệm thu Linux |
 |---|---|---|
-| Task | 3 (nghe thử), 4, 5, 6, 6b, 14, 13, 15 | 7, 8, 9, 10, 11, 12 |
-| File sở hữu | `audio.py`, `voice.py`, `actions.py`, `agent.py`, `__main__.py` + test tương ứng | `dsp.py`, `pipeline.py`, `scripts/evaluate.py` + test tương ứng |
-| Vì sao | Mở app Windows, thiết bị âm thanh đều cần Windows | Bộ lọc là numpy thuần, chạy và test được trên mọi máy |
+| Task | 3 (nghe thử), 5, 6, 6b, 13–19, 21, 22 (Task 4 đã bỏ) | 7, 8, 9, 10, 11, 12, 20 |
+| File sở hữu | `audio.py`, `voice.py`, `actions.py`, `agent.py`, `gui.py`, `__main__.py` + test tương ứng | `dsp.py`, `pipeline.py`, `scripts/evaluate.py` + test tương ứng |
+| Vì sao | A viết và chạy thử chính trên Windows | Bộ lọc là numpy thuần; máy B là nơi kiểm chương trình trên Ubuntu 24.04 |
 
 **Thứ tự để hai người không chờ nhau:**
 ```
-A:  4 ─► 5 ─► 6 ─► 6b ─► 14 ────────► 13 ─► 15
-B:  7 ─► 8 ─► 9 ─► 10 ─► 11 ─► 12
-                      └── 13 cần 10 xong ──┘
+Xong:  A 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17 → 18;  B 7 → 8 → 9 → 10
+Còn:
+A:  19 ─────────────► 21 ─► 22
+B:  11 ─► 12     └─► 20 (nghiệm thu Ubuntu, cần 19 xong)
 ```
-- Task 13 (tool DSP) chỉ bắt đầu khi Task 10 đã vào `main`.
-- Task 5 của A sửa nhẹ `pipeline.py` (thêm `monitor`). A nên làm Task 5 sớm và merge nhanh, để B ít phải gộp xung đột.
+- Task 19 chờ B gửi kết quả `ls -l /usr/bin/gnome-text-editor /usr/bin/gnome-calculator /snap/bin/gnome-calculator`.
+- Task 22 cần B kiểm tay GUI trên Ubuntu (Success Criteria 10).
+- Task 18 có sửa `pipeline.py` của B (hiệu chuẩn ồn, chỉnh trừ phổ tại chỗ). B duyệt PR đó trước khi đo lại Task 12, vì hiệu chuẩn giờ cho phổ ồn lớn hơn khoảng 3 dB.
 
 **File dùng chung** (`SPEC.md`, `tasks/`, `requirements.txt`, `README.md`, `.gitignore`): ai sửa cũng được, nhưng ghi rõ trong PR.
 
@@ -60,7 +62,7 @@ python -m pytest -q
 **B — Ubuntu:**
 ```
 python3 --version                     # cần 3.13; nếu thấp hơn, cài python3.13 từ PPA deadsnakes
-sudo apt install git libportaudio2 python3.13-venv   # sounddevice trên Linux cần libportaudio2
+sudo apt install git libportaudio2 python3.13-venv python3.13-tk   # libportaudio2 cho sounddevice, python3.13-tk cho --gui
 ssh-keygen -t ed25519 -C "email-dang-ky-github@example.com"
 cat ~/.ssh/id_ed25519.pub             # dán vào GitHub → Settings → SSH and GPG keys → New SSH key
 git clone git@github.com:<tài-khoản>/<tên-repo>.git
@@ -69,6 +71,13 @@ python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m pytest -q
+```
+Chạy thử trên Ubuntu: `python -m voiceagent --list-devices` để xem số thiết bị (PipeWire/PulseAudio có thể khác Windows), rồi `python -m voiceagent --input N --output M`.
+
+**Cả hai:** tạo file `.env` ở thư mục dự án (đã nằm trong `.gitignore`):
+```
+DEEPSEEK_API_KEY=...
+GEMINI_API_KEY=...        # chỉ cần khi chạy --stt gemini
 ```
 
 Mỗi lần mở terminal mới, kích hoạt lại `.venv` trước khi chạy code.
@@ -115,7 +124,7 @@ test(actions): reject file:// urls
 docs(spec): add Pipeline interface contract
 chore: pin dependency versions
 ```
-Scope là tên module: `dsp`, `pipeline`, `audio`, `voice`, `actions`, `agent`, `eval`, `spec`.
+Scope là tên module: `dsp`, `pipeline`, `audio`, `voice`, `actions`, `agent`, `gui`, `eval`, `spec`, `tasks`.
 
 **Pull Request:** nhỏ, mỗi PR một task, dưới khoảng 300 dòng thay đổi. Test xanh trên máy người mở PR *và* người duyệt. Không ai tự merge PR chưa được duyệt.
 
@@ -128,8 +137,10 @@ Scope là tên module: `dsp`, `pipeline`, `audio`, `voice`, `actions`, `agent`, 
 **Chạy được trên cả 2 hệ điều hành:**
 - Đường dẫn dùng `pathlib.Path`, không viết cứng `\` hay `/`.
 - Mở file văn bản luôn ghi `encoding="utf-8"`. Mặc định của Windows không phải UTF-8, tiếng Việt sẽ lỗi.
-- Thư viện chỉ có trên Windows (exe trong `ALLOWED_APPS`) chỉ import *bên trong hàm*. Test thay bằng hàm giả. Nhờ vậy `python -m pytest -q` vẫn xanh trên Ubuntu.
+- Phần khác nhau theo hệ điều hành chỉ nằm ở bảng app trong `actions.py`: `WINDOWS_APPS` và `LINUX_APPS`, chọn bằng `sys.platform`. Bảng chỉ chứa đường dẫn tuyệt đối, không tra `PATH`. Thêm app vào bảng nào cũng phải hỏi người kia.
+- Test chỉ dùng tên app có ở cả 2 bảng (`notepad`, `calculator`). `Popen` và `webbrowser.open` luôn được thay bằng hàm giả.
+- Thư viện nặng hoặc có thể thiếu (`faster_whisper`, `google.genai`, `tkinter`) chỉ import *bên trong hàm*. Nhờ vậy `python -m pytest -q` xanh trên cả 2 máy mà không cần màn hình.
 - Test không được cần micro, loa, mạng hay API key.
 - Line ending do `.gitattributes` lo (LF cho mọi file văn bản), không cần chỉnh gì thêm.
 
-**Bí mật:** `GEMINI_API_KEY` đặt trong biến môi trường hoặc file `.env` (đã nằm trong `.gitignore`). Không bao giờ dán key vào code, commit hay PR. Lỡ commit key thì báo người kia và **tạo key mới ngay**. Xóa commit không đủ, vì key đã lên GitHub.
+**Bí mật:** `DEEPSEEK_API_KEY` và `GEMINI_API_KEY` đặt trong biến môi trường hoặc file `.env` (đã nằm trong `.gitignore`). Không bao giờ dán key vào code, commit hay PR. Lỡ commit key thì báo người kia và **tạo key mới ngay**. Xóa commit không đủ, vì key đã lên GitHub.
