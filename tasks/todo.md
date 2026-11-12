@@ -331,11 +331,11 @@ DeepSeek thật 2026-11-11: "mở nút pát giúp mình" (lỗi STT giả lập)
 
 **Acceptance:**
 - [x] Với graph/out/ask_yes_no giả: chữ rỗng thì không gọi graph; có chữ thì in đúng câu trả lời và ghi transcript; có interrupt thì hỏi rồi resume; graph ném lỗi → báo lỗi, phiên vẫn chạy; model luôn gọi tool → câu dự phòng.
-- [ ] Thủ công: 6 kịch bản trong Success Criteria 4 của spec đều đạt.
-- [ ] Thủ công: thiếu key, ngắt mạng, `quit`, Ctrl+C đều thoát hoặc báo lỗi sạch; WAV + transcript được ghi.
+- [x] Thủ công (xong 2026-11-12): 6 kịch bản trong Success Criteria 4 của spec đều đạt.
+- [x] Thủ công (xong 2026-11-12): thiếu key, ngắt mạng, `quit`, Ctrl+C đều thoát hoặc báo lỗi sạch; WAV + transcript được ghi.
 
 Thêm `_close_dangling_tool_calls`: vượt `recursion_limit` ngay sau node `llm` để lại tool call chưa có `ToolMessage`, lượt sau DeepSeek sẽ trả 400. Có test.
-Chạy thử 2026-11-11 bằng chữ gõ (DeepSeek thật): "Thủ đô của Pháp" → đúng; "mở notepad" → hỏi y/n, `n` → `cancelled`; "còn ồn quá" → `get_status` rồi `set_spectral_subtraction(True, 2, 0.02, 0.3)`; transcript ghi đủ. `DEEPSEEK_API_KEY=` rỗng → báo thiếu key, phiên vẫn chạy. Chưa thử bằng giọng nói, ngắt mạng, Ctrl+C.
+Chạy thử 2026-11-11 bằng chữ gõ (DeepSeek thật): "Thủ đô của Pháp" → đúng; "mở notepad" → hỏi y/n, `n` → `cancelled`; "còn ồn quá" → `get_status` rồi `set_spectral_subtraction(True, 2, 0.02, 0.3)`; transcript ghi đủ. `DEEPSEEK_API_KEY=` rỗng → báo thiếu key, phiên vẫn chạy.
 
 **Verify:** `python -m pytest -q`; thủ công: `python -m voiceagent`, chạy 6 kịch bản.
 
