@@ -15,6 +15,9 @@ Xây theo [SPEC.md](../SPEC.md): trợ lý giọng nói. Bạn nói (push-to-tal
 - **`Pipeline` là điểm hội tụ duy nhất.** Realtime, đánh giá và agent đều dùng cùng một `Pipeline`.
 - **Phụ thuộc ngoài truyền vào dưới dạng tham số** (model Whisper, client Gemini, model chat, out, ask_yes_no, Popen, webbrowser). Import thư viện nặng hoặc chỉ có trên Windows (`faster_whisper`) nằm trong hàm, để test xanh trên Ubuntu.
 - **TDD mỗi task:** viết test đỏ → code tối thiểu cho xanh → dọn.
+- **Linux chỉ khác ở bảng app (Phase 6).** Mọi phần khác đã dùng thư viện đa nền tảng. Không thêm lớp trừu tượng theo hệ điều hành: `ALLOWED_APPS = WINDOWS_APPS if sys.platform == "win32" else LINUX_APPS`.
+- **GUI làm theo 2 lát dọc (Phase 7):** Task 21 = cửa sổ chat chạy được end-to-end (nói → chữ → agent → y/n); Task 22 = thêm thanh mức âm + spectrogram. Lát 1 dùng được ngay dù chưa có lát 2.
+- **GUI chỉ thay vòng `input()`.** Phần dựng phiên (Pipeline, stream, STT, graph, transcript, ghi WAV khi thoát) dùng chung với CLI. Logic có thể test (`TurnBridge`, `spectrum_column`) không import tkinter.
 
 ## Dependency Graph
 ```
@@ -24,7 +27,13 @@ helpers ── BandPass ── Pipeline/Params/Meters ──┬── audio.py: 
                                                 ├── monitor + thu câu nói (5) ── Whisper STT (6) ── Gemini STT + --stt (6b) ──┐
                                                 └── tool DSP (13) ── graph llm↔tools (15) ──┐                                  │
 actions.py + describe_action (14) ──────────────────────────────────── node confirm (16) ──┴── handle_turn + vòng chính (17) ◄┘
+                                                                                                         │
+audit fixes (18) ── bảng app theo hệ (19) ── nghiệm thu Ubuntu (20, B)                                    │
+                                 └── GUI chat + nút nói + y/n (21) ◄────────────────────────────────────┘
+                                          └── thanh mức âm + spectrogram (22)
 ```
+
+Thứ tự tiếp theo: `19 → 21 → 22` (A); `20` (B) làm ngay sau 19. GUI kiểm tay trên Ubuntu cần 19 xong.
 
 Thứ tự của A: `0 → 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17`. Task 14 không phụ thuộc gì, có thể làm sớm hơn nếu bị chặn ở Phase 2.
 
@@ -73,6 +82,18 @@ Thứ tự của A: `0 → 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17`. T
 ### Checkpoint 5: Toàn bộ Success Criteria 1–9 trong SPEC.md
 Duyệt 2026-11-12; còn mở tiêu chí 8, 9 (Task 11–12 của B).
 
+### Phase 6: Chạy trên Ubuntu 24.04
+- [ ] Task 19: Bảng app theo hệ điều hành (`WINDOWS_APPS` / `LINUX_APPS`) (A)
+- [ ] Task 20: Nghiệm thu trên Ubuntu: cài, pytest, Success Criteria 1, 2, 4 (B)
+
+### Checkpoint 6: pytest xanh trên cả 2 hệ, 6 kịch bản chạy tay trên Ubuntu
+
+### Phase 7: Giao diện Tkinter (`--gui`)
+- [ ] Task 21: `TurnBridge` + cửa sổ chat, nút giữ để nói, hộp y/n, cờ `--gui` (A)
+- [ ] Task 22: Thanh mức âm + spectrogram trực tiếp trước/sau lọc (A)
+
+### Checkpoint 7: Success Criteria 10 đạt trên Windows 11 và Ubuntu 24.04
+
 ## Risks and Mitigations
 | Risk | Impact | Mitigation |
 |---|---|---|
@@ -86,6 +107,9 @@ Duyệt 2026-11-12; còn mở tiêu chí 8, 9 (Task 11–12 của B).
 | Nhận dạng sai dẫn tới hành động sai | Med | Xác nhận y/n, danh sách cho phép, không shell, có test bảo mật. |
 | Hằng số minstat / ngưỡng STOI không hợp với dữ liệu thật | Med | Task 12 có bước chỉnh, mọi thay đổi tiêu chí phải được bạn duyệt. |
 | Tổng trễ một lượt vài giây | Low | Chấp nhận. In "đang nghe chữ…" và "đang nghĩ…". |
+| Đường dẫn `gnome-calculator` trên Ubuntu là snap, không phải `/usr/bin` | Low | Task 19 hỏi B chạy `ls -l /usr/bin/gnome-calculator /snap/bin/gnome-calculator` trước khi chốt. |
+| Widget Tkinter bị gọi từ luồng phụ → treo/crash | Med | `TurnBridge` (queue) là đường duy nhất từ luồng phụ; review Task 21 kiểm riêng điểm này. |
+| Spectrogram làm luồng audio underrun | Med | Task 22 đo Meters 2 phút với cửa sổ mở, trên cả 2 hệ. |
 
 ## Open Questions
 - Open Questions 1–7 trong SPEC.md vẫn mở. Câu 1 (tên model DeepSeek) chốt ở Task 15. Câu 6 (danh sách app) cần trả lời trước Task 14. Câu 7 (model Gemini STT) chốt ở Task 6b.
