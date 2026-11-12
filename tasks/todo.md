@@ -347,3 +347,5 @@ Chạy thử 2026-11-11 bằng chữ gõ (DeepSeek thật): "Thủ đô của Ph
 - [ ] Toàn bộ Success Criteria 1–9 trong SPEC.md đạt
 - [ ] `/agent-skills:code-simplify` và ponytail review không còn vấn đề chặn
 - [ ] Sẵn sàng `/agent-skills:ship`
+
+Bạn duyệt 2026-11-12 với mục còn mở: Success Criteria 1–7 đạt (thử tay Task 6, 6b, 17). Tiêu chí 8, 9 chờ Task 11–12 của B. Chưa chạy `/code-simplify`. Dòng log `[tool]` giờ cắt ở 100 ký tự (model vẫn nhận đủ kết quả).

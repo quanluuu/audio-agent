@@ -129,6 +129,13 @@ def test_dsp_tool_call_runs_and_loops_back():
     assert any(line.startswith("[tool] set_bypass") for line in lines)
 
 
+def test_tool_log_line_is_short():
+    graph, _, _, lines = graph_with(AIMessage("", tool_calls=[call("get_status", {})]), AIMessage("Ổn."))
+    ask(graph, "trạng thái?")
+    line = next(line for line in lines if line.startswith("[tool] get_status"))
+    assert len(line) <= 100 and line.endswith("…")
+
+
 def test_unknown_tool_and_missing_args_give_error_messages():
     graph, model, _, _ = graph_with(
         AIMessage("", tool_calls=[call("format_disk", {}, "a"), call("set_bandpass", {"enabled": True}, "b")]),

@@ -13,6 +13,7 @@ from voiceagent.actions import describe_action
 from voiceagent.pipeline import Pipeline
 
 FALLBACK_REPLY = "Mình chưa làm được việc này."
+LOG_LIMIT = 100  # chars per [tool] line on the terminal
 DEFAULT_DEEPSEEK_MODEL = "deepseek-flash"  # per api-docs.deepseek.com 2026-11: deepseek-v4-flash is a retired alias
 
 SYSTEM_PROMPT = """Bạn là trợ lý giọng nói tiếng Việt. Câu trả lời hiện trên terminal, nên giữ ngắn (1-3 câu), không dùng markdown hay danh sách.
@@ -162,7 +163,8 @@ def build_graph(model, dsp_tools: list, action_tools: list, checkpointer, out=pr
         for c in state["messages"][-1].tool_calls:
             result = preset[c["id"]] if c["id"] in preset else _run_tool(tools_by_name, c["name"], c["args"])
             args = ", ".join(f"{k}={v!r}" for k, v in c["args"].items())
-            out(f"[tool] {c['name']}({args}) -> {result}")
+            line = f"[tool] {c['name']}({args}) -> {result}"
+            out(line if len(line) <= LOG_LIMIT else line[:LOG_LIMIT - 1] + "…")  # full result still goes to the model
             messages.append(ToolMessage(json.dumps(result, ensure_ascii=False), tool_call_id=c["id"]))
         return {"messages": messages, "preset": {}}
 
