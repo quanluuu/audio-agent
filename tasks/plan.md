@@ -68,8 +68,10 @@ Thứ tự của A: `0 → 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17`. T
 - [x] Task 15: Graph `llm ↔ tools` + spike DeepSeek
 - [x] Task 16: Node `confirm` + `interrupt()`
 - [x] Task 17: `handle_turn` + vòng hội thoại đầy đủ
+- [x] Task 18: Sửa lỗi từ ponytail audit (2026-11-12)
 
 ### Checkpoint 5: Toàn bộ Success Criteria 1–9 trong SPEC.md
+Duyệt 2026-11-12; còn mở tiêu chí 8, 9 (Task 11–12 của B).
 
 ## Risks and Mitigations
 | Risk | Impact | Mitigation |

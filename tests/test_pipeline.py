@@ -140,3 +140,27 @@ def test_invalid_noise_estimator_raises():
     p = Pipeline(SR)
     with pytest.raises(ValueError):
         p.set_noise_estimator("invalid_mode")
+
+
+def test_calibration_matches_true_noise_spectrum():
+    p = Pipeline(SR)
+    p.set_bandpass(False, 100.0, 3800.0)
+    x = (0.01 * np.random.default_rng(0).standard_normal(SR)).astype(np.float32)
+    p.calibrate_noise(seconds=0.5)
+    for i in range(0, SR, BLOCK):
+        p.process_block(x[i:i + BLOCK])
+    window = p._ss.window
+    true = np.mean([np.abs(np.fft.rfft(x[i:i + 512] * window)) for i in range(0, SR // 2 - 512, BLOCK)], axis=0)
+    assert abs(20 * np.log10(p._ss.noise_mag.mean() / true.mean())) < 0.5
+
+
+def test_changing_alpha_keeps_minstat_memory():
+    p = Pipeline(SR)
+    p.set_noise_estimator("minstat")
+    p.set_spectral_subtraction(True, 2.0, 0.02, 0.0)
+    for i in range(20):
+        p.process_block(sine_block(1000, amp=0.05, start=i * BLOCK))
+    seen = p._ss.frames_seen
+    p.set_spectral_subtraction(True, 1.0, 0.05, 0.3)
+    assert p._ss.frames_seen == seen
+    assert (p.params().alpha, p._ss.alpha, p._ss.beta, p._ss.smoothing) == (1.0, 1.0, 0.05, 0.3)

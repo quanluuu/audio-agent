@@ -343,7 +343,30 @@ Chạy thử 2026-11-11 bằng chữ gõ (DeepSeek thật): "Thủ đô của Ph
 **Files:** `voiceagent/agent.py`, `voiceagent/__main__.py`, `tests/test_agent.py`
 **Scope:** M
 
+### Task 18: Sửa lỗi từ ponytail audit
+**Mô tả:** Audit 2026-11-12 tìm 6 lỗi. Phần `pipeline.py` là code của B, nên B cần duyệt PR này.
+1. Tool ném `OSError` (ví dụ `FileNotFoundError` khi Paint đã gỡ, hoặc chạy trên Ubuntu) làm graph văng lỗi. Tool call bị treo không có `ToolMessage`, nên mọi lượt sau DeepSeek trả 400. Sửa: `_run_tool` bắt thêm `OSError`; `handle_turn` gọi `_close_dangling_tool_calls` cả ở nhánh lỗi chung.
+2. Hiệu chuẩn ồn thấp hơn thực tế −2.98 dB (đo bằng white noise): khi hiệu chuẩn, `prev_input` không cập nhật, nên nửa khung luôn là 0. `alpha=2` khi đó chỉ trừ như `alpha≈1.4`. Sửa: cập nhật `prev_input` mỗi khối hiệu chuẩn.
+3. `calibrate_noise` gán `_calibrating = True` trước các biến đếm; luồng âm thanh chen vào giữa thì kết thúc ngay với dữ liệu cũ. Sửa: gán cờ cuối cùng.
+4. `set_spectral_subtraction` tạo `SpectralSubtractor` mới, nên mất bộ đệm minstat, OLA, `prev_gain`: giọng mờ khoảng 1.5 s và có click. Sửa: kiểm tham số rồi gán `alpha`, `beta`, `smoothing` vào bộ cũ.
+5. `open_url`/`search_web` báo ok dù `webbrowser.open` trả `False`. Sửa: trả `{"error"}`.
+6. `set_noise_estimator` kiểm `mode` hai lần (`SpectralSubtractor.set_noise_mode` đã kiểm). Sửa: xóa bản trong Pipeline.
+
+**Acceptance:**
+- [x] Test: `Popen` ném `FileNotFoundError` → lượt đó báo lỗi, lượt sau mọi tool call đều có `ToolMessage`.
+- [x] Test: hiệu chuẩn white noise, ước lượng lệch thật < 0.5 dB.
+- [x] Test: đổi alpha ở chế độ minstat giữ nguyên bộ đệm minstat.
+- [x] Test: `webbrowser.open` trả `False` → `{"error"}`.
+- [x] Toàn bộ test xanh (122/122, 2026-11-12).
+
+**Verify:** `python -m pytest -q`
+**Dependencies:** Task 17
+**Files:** `voiceagent/agent.py`, `voiceagent/pipeline.py`, `voiceagent/actions.py`, `tests/test_agent.py`, `tests/test_pipeline.py`, `tests/test_actions.py`
+**Scope:** S
+
 ## Checkpoint 5: Hoàn thành
 - [ ] Toàn bộ Success Criteria 1–9 trong SPEC.md đạt
-- [ ] `/agent-skills:code-simplify` và ponytail review không còn vấn đề chặn
+- [x] `/agent-skills:code-simplify` và ponytail review không còn vấn đề chặn (2026-11-12: chỉ sắp lại import, không có code thừa)
 - [ ] Sẵn sàng `/agent-skills:ship`
+
+Bạn duyệt 2026-11-12 với mục còn mở: Success Criteria 1–7 đạt (thử tay Task 6, 6b, 17). Tiêu chí 8, 9 chờ Task 11–12 của B. Dòng log `[tool]` giờ cắt ở 100 ký tự (model vẫn nhận đủ kết quả).
