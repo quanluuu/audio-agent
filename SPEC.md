@@ -1,7 +1,7 @@
 # Spec: Voice Agent — Trợ lý giọng nói có khử ồn DSP
 
 ## Giả định
-1. Chạy local trên Windows 11, một người dùng, Python 3.13.
+1. Chạy local, một người dùng, Python 3.13, trên **Windows 11** (A) và **Ubuntu 24.04 GNOME** (B). Mọi tính năng chạy giống nhau trên 2 hệ, trừ `open_app`: bảng app khác nhau theo hệ (xem Tool hành động ngoài). Trên Ubuntu, `sounddevice` cần gói hệ thống `libportaudio2`.
 2. Âm thanh mono, 16 kHz, float32 trong [-1, 1]. Micro và loa/tai nghe mặc định của hệ điều hành (chọn thiết bị khác qua cờ `--input`/`--output`).
 3. Người dùng đeo **tai nghe**. Dùng loa ngoài mà bật monitor thì giọng lọt lại vào micro, gây hú. Không làm khử tiếng vang (echo cancellation).
 4. LLM chat là **DeepSeek Flash**, gọi qua `ChatDeepSeek` (gói `langchain-deepseek`) bên trong một graph **LangGraph**. Key nằm trong biến môi trường `DEEPSEEK_API_KEY`. Tên model đọc từ `DEEPSEEK_MODEL`, mặc định `deepseek-flash` (docs 2026-11-11: hiện chạy DeepSeek-V4.1-Flash-1017; `deepseek-v4-flash` đã ngừng, chỉ còn là alias). Thinking mode bật sẵn ở `deepseek-flash`, nên phải tắt bằng `extra_body={"thinking": {"type": "disabled"}}`. DeepSeek V4/V4.1 Flash **không nhận audio**: đầu vào chỉ có chữ và ảnh. Vì vậy STT dùng hệ khác (giả định 5).
@@ -54,6 +54,7 @@ STT và chat là **2 bước riêng**, vì DeepSeek không nhận audio. Tách r
 - Gõ chữ rồi Enter: gửi thẳng câu chữ, bỏ qua bước STT. Dùng khi STT nghe sai hoặc khi không có micro.
 - Lệnh `quit`: thoát.
 - Trong lúc agent đang nghĩ hoặc đang nói, chương trình không nhận lượt nói mới.
+- Với `--gui`: nhấn giữ nút "Giữ để nói" để ghi, thả ra để gửi. Ô chữ + nút "Gửi" thay cho gõ chữ. Đóng cửa sổ thay cho `quit`.
 
 ### Module (xây theo thứ tự dsp → stream → voice → agent)
 
@@ -62,7 +63,8 @@ STT và chat là **2 bước riêng**, vì DeepSeek không nhận audio. Tách r
 | dsp | Bộ lọc thuần numpy/scipy, xử lý từng khối, có state giữa các khối | — | BandPass xong |
 | stream | Pipeline + tham số dùng chung + đo chỉ số; nối micro/loa bằng `sounddevice`; ghi WAV phiên; thu câu nói theo lượt; monitor bật/tắt | dsp | Pipeline, ghi WAV xong |
 | voice | STT (faster-whisper hoặc Gemini), transcript | stream | Chưa |
-| agent | LangGraph StateGraph: DeepSeek chat + tools (DSP, ghi chú, mở app/web) + xác nhận bằng `interrupt()`, vòng hội thoại | voice | Chưa |
+| agent | LangGraph StateGraph: DeepSeek chat + tools (DSP, ghi chú, mở app/web) + xác nhận bằng `interrupt()`, vòng hội thoại | voice | Xong |
+| gui | Cửa sổ Tkinter tùy chọn (`--gui`): chat, nút nói, hộp y/n, thanh mức âm, spectrogram trực tiếp trước/sau lọc | agent | Chưa |
 
 ### dsp — các bộ lọc (thứ tự trong chuỗi)
 1. **Band-pass** (`BandPass`): Butterworth IIR bậc 4, dạng `sos`, mặc định 100–3800 Hz (dải chứa giọng nói). Dùng `scipy.signal.sosfilt` với state `zi` giữ giữa các khối, để không có tiếng "click" ở ranh giới khối. Không dùng `sosfiltfilt` vì nó cần cả tín hiệu tương lai.
@@ -204,7 +206,7 @@ lượt nói ──► STT ──► graph.invoke(HumanMessage) ──► in ch�
 
 | Tool | Tác dụng | Giới hạn an toàn |
 |---|---|---|
-| `open_app(name: str)` | Mở ứng dụng Windows | Chỉ tên có trong `ALLOWED_APPS` (dict tên → đường dẫn exe, khai báo trong `actions.py`; mặc định `notepad`, `calculator`, `paint`). Chạy bằng `subprocess.Popen([exe])`, không qua shell. |
+| `open_app(name: str)` | Mở ứng dụng trên máy | Chỉ tên có trong `ALLOWED_APPS` (dict tên → đường dẫn **tuyệt đối** tới file chạy, khai báo trong `actions.py`). Chọn bảng theo `sys.platform` lúc import: `WINDOWS_APPS` (`notepad`, `calculator`, `paint`) hoặc `LINUX_APPS` (`notepad` → `/usr/bin/gnome-text-editor`, `calculator` → đường dẫn `gnome-calculator` trên máy B; không có `paint` vì Ubuntu không cài sẵn app vẽ). Không tra `PATH` (`shutil.which`) để tránh chạy nhầm file ai đó đặt sẵn. Chạy bằng `subprocess.Popen([exe])`, không qua shell. File chạy không tồn tại thì tool trả `{"error"}`, phiên vẫn chạy. |
 | `open_url(url: str)` | Mở trang web | Chỉ `http://` hoặc `https://`. Mở bằng `webbrowser.open`. |
 | `search_web(query: str)` | Tìm Google | Ghép URL tìm kiếm có mã hóa `urllib.parse.quote_plus`, rồi mở như `open_url`. |
 | `save_note(title: str, content: str)` | Ghi ghi chú/tóm tắt ra file | Chỉ ghi vào `notes/`. Tên file `<ngày>_<slug>.md`, slug chỉ giữ chữ, số, gạch ngang (chặn `../`). Trùng tên thì thêm số, không ghi đè. |
@@ -238,7 +240,42 @@ Bạn: còn nghe tiếng quạt rõ quá
 Agent: Mình tăng mức trừ ồn từ 2 lên 3. Nếu giọng nghe rè thì báo mình giảm lại.
 ```
 
-Ngoài phạm vi: GUI, khử ồn bằng deep learning (Whisper chỉ dùng cho STT), khử vang, nhiều kênh, VAD/tự phát hiện lượt nói, agent nói (TTS, kể cả offline hay qua API), streaming câu trả lời, chế độ thinking của DeepSeek, STT trong graph, nhiều agent/subgraph, checkpointer lưu đĩa (SQLite) hay nhớ qua nhiều phiên, LangSmith/LangGraph Studio, Gmail/Calendar/OAuth, chạy lệnh shell tùy ý, agent tự truy cập web để trả lời, đóng gói phân phối.
+Ngoài phạm vi: GUI ngoài Tkinter (web, Qt, TUI), thanh kéo chỉnh bộ lọc trong GUI (chỉnh qua agent), khử ồn bằng deep learning (Whisper chỉ dùng cho STT), khử vang, nhiều kênh, VAD/tự phát hiện lượt nói, agent nói (TTS, kể cả offline hay qua API), streaming câu trả lời, chế độ thinking của DeepSeek, STT trong graph, nhiều agent/subgraph, checkpointer lưu đĩa (SQLite) hay nhớ qua nhiều phiên, LangSmith/LangGraph Studio, Gmail/Calendar/OAuth, chạy lệnh shell tùy ý, agent tự truy cập web để trả lời, đóng gói phân phối.
+
+### gui — cửa sổ Tkinter (cờ `--gui`)
+CLI vẫn là mặc định. `--gui` mở một cửa sổ dùng chung `Pipeline`, stream, `listen_turn`, `handle_turn`, transcript và phần ghi WAV khi thoát với CLI; chỉ thay vòng `input()`. Tkinter là thư viện chuẩn, không thêm gói pip (Ubuntu cần `apt install python3.13-tk`).
+
+```
+┌ Voice Agent ───────────────────────────────┬ Trước lọc ────────────────┐
+│ Bạn: mở notepad giúp mình                  │ ▓▒░░▒▓▓▒░▒▓▒░░▒▓▓▒░  8 kHz│
+│ [tool] open_app(name='notepad') -> {...}   │ ▒░░ ░▒▓▒░░▒░░ ░▒▓▒        │
+│ Agent: Đã mở Notepad.                      ├ Sau lọc ──────────────────┤
+│                                            │ ░  ░▒▓▒░   ░  ░▒▓▒   8 kHz│
+│                                            │     ░▒░       ░▒░         │
+├────────────────────────────────────────────┼───────────────────────────┤
+│ [ gõ chữ...                    ] [Gửi]     │ in  █████░░░ -32 dB       │
+│ [ Giữ để nói ]           đang nghĩ…        │ out ███░░░░░ -41 dB       │
+│                                            │ 0.4 ms/khối · 0 underrun  │
+└────────────────────────────────────────────┴───────────────────────────┘
+```
+
+- **Chat:** ô chữ chỉ đọc, hiện mọi dòng mà CLI in (`Bạn:`, `[tool] …`, `Agent: …`, lỗi). Thanh trạng thái hiện "đang nghe…", "đang nghe chữ…", "đang nghĩ…".
+- **Nút nói:** nhấn giữ (`<ButtonPress>`) gọi `utterance.start()`, thả (`<ButtonRelease>`) gọi `utterance.stop()` rồi chạy lượt. Trong lúc một lượt đang chạy, nút nói và nút Gửi bị khóa.
+- **Hộp y/n:** câu hỏi từ `interrupt()` hiện bằng `tkinter.messagebox.askyesno`. Đóng hộp = không.
+- **Thanh mức âm:** đọc `pipeline.meters` 10 lần/giây: mức vào/ra (dB, thang −80…0), ms/khối, số underrun.
+- **Spectrogram trực tiếp:** 2 hình, trước lọc (từ `raw`) và sau lọc (từ `clean`). Mỗi 50 ms lấy 512 mẫu cuối, tính phổ (cửa sổ Hann, `np.fft.rfft`), đổi sang dB (thang −100…−20 dB), vẽ thành 1 cột 128 điểm (0–8 kHz, tần số thấp ở dưới). Hình rộng 300 cột (khoảng 15 s), vẽ vòng tròn có vạch đánh dấu cột hiện tại; không cuộn ảnh. Vẽ bằng `tk.PhotoImage`, không dùng matplotlib.
+
+**Luồng (threading):**
+- Luồng chính chạy `Tk.mainloop()` và là luồng **duy nhất** chạm vào widget.
+- Mỗi lượt (STT + `handle_turn`) chạy trong một `threading.Thread` riêng, để cửa sổ không bị đơ khi chờ Whisper hay DeepSeek.
+- Lượt gửi chữ ra GUI qua `queue.Queue`; luồng chính lấy ra bằng `root.after(50, …)`.
+- `ask_yes_no` của lượt đặt câu hỏi vào queue rồi chờ câu trả lời. Luồng chính hiện `askyesno` rồi trả kết quả về.
+- Audio callback không đổi, GUI không thêm việc gì vào luồng audio. GUI chỉ đọc `raw[-2:]`/`clean[-2:]` (list chỉ được append, đọc phần đuôi an toàn trong CPython).
+
+`voiceagent/gui.py`:
+- `spectrum_column(samples, rows=128, floor_db=-100.0, ceil_db=-20.0) -> list[str]`: hàm thuần, trả `rows` mã màu `"#rrggbb"` từ dưới (0 Hz) lên trên (8 kHz).
+- `TurnBridge`: thuần Python, không import tkinter. `out(text)` và `status(text)` đẩy vào queue; `ask_yes_no()` đẩy câu hỏi rồi chờ trả lời (hết hạn 120 s = không); `answer(ok)` do luồng chính gọi; `drain()` lấy hết tin đang chờ.
+- `run_gui(pipeline, utterance, raw, clean, transcribe, graph, config, transcript)`: import tkinter **bên trong hàm**, dựng cửa sổ, chạy `mainloop()`, trả về khi đóng cửa sổ.
 
 ## Tech Stack
 - Python 3.13
@@ -250,13 +287,17 @@ Ngoài phạm vi: GUI, khử ồn bằng deep learning (Whisper chỉ dùng cho 
 - google-genai: Gemini STT, backend tùy chọn (đã cài)
 - pystoi: chỉ số STOI, chỉ dùng trong script đánh giá (đã cài)
 - pytest (đã cài)
-- Thư viện chuẩn: `webbrowser`, `subprocess`, `urllib.parse`, `io`, `wave`
+- Thư viện chuẩn: `tkinter` (chỉ khi `--gui`), `threading`, `queue`, `webbrowser` (Ubuntu mở qua `xdg-open`), `subprocess`, `urllib.parse`, `io`, `wave`
+- Gói hệ thống Ubuntu: `libportaudio2` (cho sounddevice), `python3.13-venv`, `python3.13-tk` (chỉ khi `--gui`)
 
 ## Commands
 ```
+Tạo venv:       Windows: python -m venv .venv && .venv\Scripts\activate
+                Ubuntu:  sudo apt install libportaudio2 python3.13-venv && python3.13 -m venv .venv && source .venv/bin/activate
 Cài:            pip install -r requirements.txt
 Xem thiết bị:   python -m voiceagent --list-devices
 Chạy đầy đủ:    python -m voiceagent [--input 1] [--output 3] [--monitor] [--stt whisper|gemini]
+Giao diện:      python -m voiceagent --gui [--stt whisper|gemini] [--all-filters]
 Chỉ DSP:        python -m voiceagent --no-agent      (không cần API key, không nạp Whisper, monitor bật sẵn)
 Biến môi trường: DEEPSEEK_API_KEY (bắt buộc cho chat), DEEPSEEK_MODEL, WHISPER_MODEL,
                  GEMINI_API_KEY + GEMINI_STT_MODEL (chỉ khi --stt gemini)
@@ -289,8 +330,9 @@ voiceagent/
   pipeline.py   Params, Meters, Pipeline (không import sounddevice)
   audio.py      sounddevice Stream, monitor, thu câu nói, ghi WAV
   voice.py      make_transcriber (whisper | gemini), ghi transcript
-  actions.py    ALLOWED_APPS, open_app, open_url, search_web, save_note, describe_action, ACTION_TOOLS (không import LangGraph)
+  actions.py    WINDOWS_APPS, LINUX_APPS, ALLOWED_APPS (chọn theo sys.platform), open_app, open_url, search_web, save_note, describe_action, ACTION_TOOLS (không import LangGraph)
   agent.py      make_dsp_tools, SYSTEM_PROMPT, AgentState, node llm/confirm/tools, build_graph, handle_turn
+  gui.py        spectrum_column, TurnBridge, run_gui (tkinter chỉ import trong run_gui)
 scripts/
   evaluate.py   đánh giá offline SNR + STOI (import pystoi chỉ ở đây)
 data/           WAV bạn tự thu cho đánh giá (không commit)
@@ -298,7 +340,7 @@ notes/          ghi chú agent lưu (không commit)
 out/            WAV + transcript sinh ra (không commit)
 tests/
   test_dsp.py, test_pipeline.py, test_audio.py, test_voice.py,
-  test_actions.py, test_agent.py, test_evaluate.py
+  test_actions.py, test_agent.py, test_gui.py, test_evaluate.py
 requirements.txt
 ```
 `dsp.py`, `pipeline.py`, `actions.py` và phần lõi `agent.py` không phụ thuộc phần cứng hay mạng. Client DeepSeek, model Whisper, Gemini, `subprocess` và `webbrowser` được truyền vào dưới dạng tham số, nên test thay được bằng hàm giả.
@@ -350,7 +392,9 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
   - STT với model Whisper giả: segment `" xin"`, `" chào"` cho ra `"xin chào"`. Không có segment thì trả `""`.
   - `make_transcriber` (Whisper và Gemini đều là hàm giả): `"gemini"` có key thì dùng Gemini. `"gemini"` thiếu key thì dùng Whisper, thông báo in đúng một lần. `"whisper"` thì không bao giờ gọi Gemini.
 - **actions** (`subprocess.Popen` và `webbrowser.open` được thay bằng hàm giả qua `monkeypatch`):
-  - `open_app`: tên ngoài `ALLOWED_APPS` thì trả lỗi và không gọi gì. Hợp lệ thì gọi đúng exe.
+  - `open_app`: tên ngoài `ALLOWED_APPS` thì trả lỗi và không gọi gì. Hợp lệ thì gọi đúng exe. `Popen` ném `FileNotFoundError` thì trả `{"error"}`.
+  - `WINDOWS_APPS` và `LINUX_APPS`: mọi đường dẫn là tuyệt đối; `LINUX_APPS` không có `paint`; `ALLOWED_APPS` là bảng đúng với `sys.platform` đang chạy.
+  - Test không phụ thuộc hệ điều hành: chỉ dùng tên app có ở cả 2 bảng (`notepad`, `calculator`), nên `python -m pytest -q` xanh trên cả Windows và Ubuntu.
   - `describe_action`: `open_app("cmd")` và `open_url("file:///C:/")` ném `ValueError`. `open_app("notepad")` trả câu hỏi có chữ "Notepad".
   - `open_url`: từ chối `file://`, `javascript:`, chuỗi không phải URL.
   - `search_web`: query có dấu cách và ký tự tiếng Việt được mã hóa đúng.
@@ -368,16 +412,20 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
     - Model luôn trả tool call: `handle_turn` bắt `GraphRecursionError` và in câu dự phòng.
     - Hai lượt cùng `thread_id`: lượt 2 thấy message của lượt 1.
   - `handle_turn` với transcribe/graph/out/ask_yes_no giả: STT trả rỗng thì không gọi chat; có chữ thì chat rồi in đúng câu trả lời và ghi transcript; chat ném lỗi mạng thì báo lỗi, phiên vẫn chạy.
+- **gui** (không mở cửa sổ, không cần màn hình, không import tkinter):
+  - `spectrum_column`: trả đúng `rows` mã `#rrggbb`. Sine 1 kHz cho điểm sáng nhất ở hàng ứng với 1 kHz (128 hàng × 62.5 Hz → hàng 16 tính từ dưới). Im lặng cho toàn màu nền. Dưới `floor_db` và trên `ceil_db` bị kẹp, không lỗi.
+  - `TurnBridge`: `out` rồi `drain` trả đúng thứ tự. `ask_yes_no` ở luồng phụ chờ đến khi `answer(True)` được gọi ở luồng chính rồi trả `True`. Hết hạn chờ thì trả `False`.
+  - Widget Tkinter không có test tự động; kiểm tay theo Success Criteria 10.
 - **evaluate**: với cấu hình "không xử lý", STOI sau bằng STOI trước (sai số < 0.01), chứng minh bù trễ đúng. Bỏ qua khi thiếu pystoi.
 - **Kiểm tra thủ công** (không tự động): xem Success Criteria 4–6.
 
 ## Boundaries
-- Always: viết test trước (TDD); chạy `python -m pytest -q` trước khi báo xong một task; giữ `dsp.py`/`pipeline.py` không có I/O, mạng, print; giữ audio callback không chặn (không lock lâu, không gọi mạng, không STT); hỏi xác nhận trước mọi hành động ngoài.
+- Always: viết test trước (TDD); chạy `python -m pytest -q` trước khi báo xong một task; giữ code chạy được trên cả Windows và Ubuntu (phần riêng theo hệ chỉ nằm ở bảng app trong `actions.py`); giữ `dsp.py`/`pipeline.py` không có I/O, mạng, print; giữ audio callback không chặn (không lock lâu, không gọi mạng, không STT); hỏi xác nhận trước mọi hành động ngoài; trong GUI chỉ luồng chính chạm widget, STT và chat luôn chạy ở luồng phụ.
 - Ask first: thêm dependency ngoài danh sách trên; đổi thứ tự chuỗi lọc; đổi sample rate hay blocksize; thêm tool mới cho agent; thêm app vào `ALLOWED_APPS`; đổi model mặc định (DeepSeek, Whisper); bật thinking mode của DeepSeek.
-- Never: commit API key, file WAV, `data/`, `notes/`, `out/`, model Whisper đã tải; dùng SNR làm thước đo duy nhất (phải xem kèm STOI); gọi DeepSeek, Gemini, nạp model Whisper thật, mở app hay mở trình duyệt thật trong test; chạy lệnh qua shell hay chạy exe ngoài `ALLOWED_APPS`; ghi file ngoài `notes/` và `out/`; tự ý clip hay resample mà không báo.
+- Never: commit API key, file WAV, `data/`, `notes/`, `out/`, model Whisper đã tải; dùng SNR làm thước đo duy nhất (phải xem kèm STOI); gọi DeepSeek, Gemini, nạp model Whisper thật, mở app hay mở trình duyệt thật trong test; chạy lệnh qua shell hay chạy exe ngoài `ALLOWED_APPS`; tìm file chạy qua `PATH`; ghi file ngoài `notes/` và `out/`; tự ý clip hay resample mà không báo.
 
 ## Success Criteria
-1. `python -m pytest -q` qua toàn bộ test ở trên, không cần micro hay mạng.
+1. `python -m pytest -q` qua toàn bộ test ở trên, không cần micro hay mạng, trên cả Windows 11 và Ubuntu 24.04.
 2. `--no-agent` chạy ≥ 2 phút không underrun (Meters báo 0), xử lý trung bình < 2 ms/khối.
 3. Với nhiễu quạt thật, bật cả 3 bộ lọc nghe rõ giảm ồn khi im lặng; giọng vẫn hiểu được. Thoát thì ghi `_raw.wav`, `_clean.wav` và `_transcript.md`.
 4. Hội thoại giọng nói (thủ công, bật quạt). Mỗi câu nói được nhận dạng đúng ý và agent in câu trả lời đúng:
@@ -387,6 +435,8 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
    - "Tìm trên Google thời tiết Hà Nội" → hỏi xác nhận rồi mở trình duyệt.
    - "Tóm tắt cuộc nói chuyện rồi lưu lại" → hỏi xác nhận rồi tạo file trong `notes/`.
    - "Mở cmd" (không có trong danh sách) → agent từ chối, không chạy gì.
+
+   Kịch bản này chạy tay trên **cả hai** máy: A trên Windows 11, B trên Ubuntu 24.04. Trên Ubuntu, "Mở Notepad" mở GNOME Text Editor; "Mở Paint" → agent báo không có app này.
 5. Các lỗi sau đều in thông báo rõ ràng, và phiên vẫn chạy được ở mức tối đa có thể:
    - Thiếu `DEEPSEEK_API_KEY`: vẫn chạy DSP và STT, in transcript, nhưng không có câu trả lời.
    - DeepSeek lỗi mạng, hết số dư (402) hoặc 429: bỏ lượt đó, lượt sau thử lại.
@@ -401,11 +451,19 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
 
    Bảng kết quả được dán vào README. Lưu ý từ paper: SS một kênh thường *không* làm STOI tăng, và có thể làm nhận dạng giọng nói kém đi.
 9. Cấu hình 3 có STOI ≥ cấu hình 2 ở cả 3 mức SNR, tức làm mượt gain không gây hại.
+10. `--gui` (thủ công, trên cả Windows 11 và Ubuntu 24.04):
+   - 6 kịch bản ở tiêu chí 4 chạy được bằng nút nói và hộp y/n.
+   - Cửa sổ không đơ khi agent đang nghĩ (kéo, cuộn được), nút nói bị khóa đến khi lượt xong.
+   - Bật quạt, bật bypass rồi tắt bypass: spectrogram "sau lọc" nhìn rõ nền tối đi so với "trước lọc".
+   - Để cửa sổ mở 2 phút: Meters vẫn 0 underrun, < 2 ms/khối.
+   - Đóng cửa sổ: ghi WAV + transcript, thoát sạch không traceback.
 
 ## Rủi ro
 | Rủi ro | Mức | Cách xử lý |
 |---|---|---|
 | Whisper `small` nhận dạng tiếng Việt kém (sai dấu, sai từ) | Med | Thử ngay với giọng thật ở task STT. Kém thì đổi `WHISPER_MODEL=medium`, hoặc dùng `--stt gemini`. |
+| Ubuntu: `gnome-calculator` có thể là snap (`/snap/bin/gnome-calculator`) thay vì `/usr/bin/` | Low | B chạy `ls -l /usr/bin/gnome-calculator /snap/bin/gnome-calculator` trên máy mình trước khi chốt đường dẫn. App thiếu thì tool trả lỗi, không làm hỏng phiên. |
+| Ubuntu: PipeWire/PulseAudio chọn thiết bị khác Windows, có thể underrun | Med | Dùng `--list-devices` rồi `--input`/`--output`; kiểm Success Criteria 2 trên Ubuntu. |
 | `faster-whisper` cài lỗi trên Python 3.13 / Windows (wheel `ctranslate2`, `av`) | Med | Cài và chạy thử ở đầu task STT, trước khi viết code. Lỗi thì báo bạn trước khi đổi hướng. |
 | Tên model / tool calling của DeepSeek khác hiểu biết hiện tại (nguồn ngoài nói `deepseek-v4-flash` có thể đã trỏ sang V4.1 Flash) | Med | Task chat đọc docs chính thức `api-docs.deepseek.com` trước khi code, rồi gọi thử 1 tool. |
 | API LangGraph đổi giữa các bản (`create_react_agent` đã chuyển sang `langchain.agents`; import `InMemorySaver`, `interrupt`, `Command` có thể đổi chỗ) | Med | Đầu task agent đọc docs chính thức LangGraph đúng bản đã cài, rồi ghim phiên bản trong `requirements.txt`. |
@@ -413,6 +471,9 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
 | Nhầm lẫn khi resume `interrupt()`: node chạy lại từ đầu | Med | Node `confirm` không có tác dụng phụ. Có test 2 tool hành động trong một `AIMessage` để bắt lỗi chạy 2 lần. |
 | SS làm STT nhận dạng *kém* đi (paper ghi nhận SS làm tăng WER) | Med | Tool `set_bypass` cho phép so sánh ngay trong phiên. Open Question 5 đề xuất đo thêm, giờ có thể đo trên cả Whisper và Gemini. |
 | Tổng độ trễ một lượt (STT + chat) vài giây | Med | Chấp nhận cho mục đích học. In "đang nghe chữ…" và "đang nghĩ…" để biết chương trình không bị treo. |
+| Gọi widget Tkinter từ luồng phụ làm treo hoặc crash (nhất là trên Linux) | Med | Chỉ luồng chính chạm widget; luồng phụ chỉ dùng `TurnBridge` (queue). |
+| Vẽ spectrogram tốn CPU, giành GIL làm luồng audio underrun | Med | Chỉ 1 FFT 512 điểm × 2 hình mỗi 50 ms, vẽ 1 cột/lần. Kiểm Meters ở tiêu chí 10. |
+| Ubuntu thiếu `python3.13-tk` | Low | `--gui` bắt `ImportError`, in lệnh `apt` cần chạy rồi thoát; CLI vẫn chạy. |
 | Nhận dạng sai dẫn tới hành động sai | Med | Luôn xác nhận y/n bằng bàn phím, có danh sách cho phép, không có shell. |
 
 ## Open Questions
@@ -421,5 +482,5 @@ pytest, tín hiệu tổng hợp (sine + nhiễu trắng có seed). Không cần
 3. Có cần báo cáo/đồ thị (spectrogram trước/sau) cho bài tập không? Spec hiện không có `matplotlib`.
 4. Ngưỡng "STOI giảm ≤ 0.02" và các hằng số minstat (0.85, 96 khung, bias 1.5) là giá trị khởi đầu tôi chọn, không lấy từ paper. Có thể cần chỉnh sau khi chạy `evaluate.py` lần đầu.
 5. Muốn đo luôn ảnh hưởng của khử ồn lên nhận dạng giọng nói không? Cách làm: chạy STT trên giọng ồn và giọng đã khử ồn, rồi tính WER so với câu đọc mẫu. Đây đúng là thí nghiệm của paper. Có 2 backend thì so được cả Whisper với Gemini. Với Whisper thì chạy offline, không tốn tiền. Việc này cần thêm script.
-6. Danh sách `ALLOWED_APPS` mặc định (`notepad`, `calculator`, `paint`) có đủ không? Bạn muốn thêm app nào, kèm đường dẫn exe?
+6. Danh sách `ALLOWED_APPS` mặc định (`notepad`, `calculator`, `paint`) có đủ không? Bạn muốn thêm app nào, kèm đường dẫn exe? Phần Linux đã chốt 2026-11-12: `notepad` → GNOME Text Editor, `calculator` → GNOME Calculator, không có `paint`. Đường dẫn `gnome-calculator` chờ B kiểm trên máy.
 7. ~~Model Gemini cho STT~~ — chốt 2026-11-11: `gemini-3.5-flash-lite` (Stable, $0.30/1M token audio). Có `gemini-3.5-transcribe` chuyên STT nhưng đắt hơn ($2.00/1M).

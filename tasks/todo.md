@@ -343,9 +343,105 @@ Chạy thử 2026-11-11 bằng chữ gõ (DeepSeek thật): "Thủ đô của Ph
 **Files:** `voiceagent/agent.py`, `voiceagent/__main__.py`, `tests/test_agent.py`
 **Scope:** M
 
+### Task 18: Sửa lỗi từ ponytail audit
+**Mô tả:** Audit 2026-11-12 tìm 6 lỗi. Phần `pipeline.py` là code của B, nên B cần duyệt PR này.
+1. Tool ném `OSError` (ví dụ `FileNotFoundError` khi Paint đã gỡ, hoặc chạy trên Ubuntu) làm graph văng lỗi. Tool call bị treo không có `ToolMessage`, nên mọi lượt sau DeepSeek trả 400. Sửa: `_run_tool` bắt thêm `OSError`; `handle_turn` gọi `_close_dangling_tool_calls` cả ở nhánh lỗi chung.
+2. Hiệu chuẩn ồn thấp hơn thực tế −2.98 dB (đo bằng white noise): khi hiệu chuẩn, `prev_input` không cập nhật, nên nửa khung luôn là 0. `alpha=2` khi đó chỉ trừ như `alpha≈1.4`. Sửa: cập nhật `prev_input` mỗi khối hiệu chuẩn.
+3. `calibrate_noise` gán `_calibrating = True` trước các biến đếm; luồng âm thanh chen vào giữa thì kết thúc ngay với dữ liệu cũ. Sửa: gán cờ cuối cùng.
+4. `set_spectral_subtraction` tạo `SpectralSubtractor` mới, nên mất bộ đệm minstat, OLA, `prev_gain`: giọng mờ khoảng 1.5 s và có click. Sửa: kiểm tham số rồi gán `alpha`, `beta`, `smoothing` vào bộ cũ.
+5. `open_url`/`search_web` báo ok dù `webbrowser.open` trả `False`. Sửa: trả `{"error"}`.
+6. `set_noise_estimator` kiểm `mode` hai lần (`SpectralSubtractor.set_noise_mode` đã kiểm). Sửa: xóa bản trong Pipeline.
+
+**Acceptance:**
+- [x] Test: `Popen` ném `FileNotFoundError` → lượt đó báo lỗi, lượt sau mọi tool call đều có `ToolMessage`.
+- [x] Test: hiệu chuẩn white noise, ước lượng lệch thật < 0.5 dB.
+- [x] Test: đổi alpha ở chế độ minstat giữ nguyên bộ đệm minstat.
+- [x] Test: `webbrowser.open` trả `False` → `{"error"}`.
+- [x] Toàn bộ test xanh (122/122, 2026-11-12).
+
+**Verify:** `python -m pytest -q`
+**Dependencies:** Task 17
+**Files:** `voiceagent/agent.py`, `voiceagent/pipeline.py`, `voiceagent/actions.py`, `tests/test_agent.py`, `tests/test_pipeline.py`, `tests/test_actions.py`
+**Scope:** S
+
 ## Checkpoint 5: Hoàn thành
 - [ ] Toàn bộ Success Criteria 1–9 trong SPEC.md đạt
 - [x] `/agent-skills:code-simplify` và ponytail review không còn vấn đề chặn (2026-11-12: chỉ sắp lại import, không có code thừa)
 - [ ] Sẵn sàng `/agent-skills:ship`
 
 Bạn duyệt 2026-11-12 với mục còn mở: Success Criteria 1–7 đạt (thử tay Task 6, 6b, 17). Tiêu chí 8, 9 chờ Task 11–12 của B. Dòng log `[tool]` giờ cắt ở 100 ký tự (model vẫn nhận đủ kết quả).
+
+## Phase 6: Chạy trên Ubuntu 24.04
+
+### Task 19: Bảng app theo hệ điều hành (A)
+**Mô tả:** Trong `actions.py`, tách `ALLOWED_APPS` thành `WINDOWS_APPS` (giữ như cũ) và `LINUX_APPS` (`notepad` → `/usr/bin/gnome-text-editor`, `calculator` → đường dẫn `gnome-calculator` B xác nhận). Chọn bằng `sys.platform` lúc import. Không có `paint` trên Linux, không tra `PATH`. Đổi các test đang dùng `paint` sang `calculator`, để test không phụ thuộc hệ điều hành.
+
+**Trước khi code:** hỏi B kết quả `ls -l /usr/bin/gnome-text-editor /usr/bin/gnome-calculator /snap/bin/gnome-calculator`.
+
+**Acceptance:**
+- [ ] Test: mọi đường dẫn trong `WINDOWS_APPS` và `LINUX_APPS` là tuyệt đối (`PureWindowsPath`/`PurePosixPath(...).is_absolute()`).
+- [ ] Test: `LINUX_APPS` không có `paint`; cả 2 bảng có `notepad` và `calculator`.
+- [ ] Test: `ALLOWED_APPS is (WINDOWS_APPS if sys.platform == "win32" else LINUX_APPS)`.
+- [ ] `test_dsp_and_action_in_one_message` và `test_tool_os_error_is_reported_and_next_turn_is_valid` dùng `calculator` thay cho `paint`.
+- [ ] `python -m pytest -q` xanh trên Windows.
+
+**Verify:** `python -m pytest -q`
+**Dependencies:** Task 18
+**Files:** `voiceagent/actions.py`, `tests/test_actions.py`, `tests/test_agent.py`
+**Scope:** S
+
+### Task 20: Nghiệm thu trên Ubuntu (B)
+**Mô tả:** B làm theo phần Commands của SPEC trên máy Ubuntu 24.04: `apt install libportaudio2 python3.13-venv`, tạo venv, `pip install -r requirements.txt`, tạo `.env`. Sửa lỗi riêng của Linux nếu gặp (báo A nếu nằm ở code của A).
+
+**Acceptance:**
+- [ ] `python -m pytest -q` xanh trên Ubuntu (Success Criteria 1).
+- [ ] `--no-agent` 2 phút: 0 underrun, < 2 ms/khối (Success Criteria 2). Ghi tên thiết bị `--input`/`--output` đã dùng.
+- [ ] 6 kịch bản Success Criteria 4 bằng giọng nói. "Mở Notepad" mở GNOME Text Editor; "Mở Paint" bị báo không có app.
+- [ ] `quit` và Ctrl+C ghi WAV + transcript.
+
+**Verify:** thủ công trên Ubuntu, ghi kết quả vào mục này.
+**Dependencies:** Task 19
+**Files:** không bắt buộc; `CONTRIBUTING.md` nếu lệnh cài cần sửa
+**Scope:** S
+
+## Checkpoint 6: Sau Task 19–20
+- [ ] pytest xanh trên Windows 11 và Ubuntu 24.04
+- [ ] B chạy được 6 kịch bản trên Ubuntu
+- [ ] Bạn duyệt trước khi sang Phase 7
+
+## Phase 7: Giao diện Tkinter (`--gui`)
+
+### Task 21: Cửa sổ chat + nút nói + hộp y/n (A)
+**Mô tả:** `voiceagent/gui.py`:
+- `TurnBridge` (không import tkinter): `out(text)`, `status(text)` đẩy vào `queue.Queue`; `ask_yes_no()` đẩy câu hỏi rồi chờ `answer(ok)` (hết hạn 120 s = không); `drain()` lấy hết tin.
+- `run_gui(pipeline, utterance, raw, clean, transcribe, graph, config, transcript)`: import tkinter trong hàm. Khung chat chỉ đọc, ô chữ + "Gửi", nút "Giữ để nói" (`<ButtonPress>` → `utterance.start()`, `<ButtonRelease>` → chạy lượt), dòng trạng thái. Mỗi lượt chạy trong `threading.Thread` với `out=bridge.out`, `ask_yes_no=bridge.ask_yes_no`; khóa nút đến khi lượt xong. `root.after(50, …)` lấy tin từ bridge, câu hỏi y/n hiện bằng `messagebox.askyesno`.
+- `__main__.py`: cờ `--gui`. Phần dựng phiên giữ chung; `--gui` gọi `run_gui` thay cho vòng `input()`; `finally` vẫn ghi WAV. Thiếu tkinter (`ImportError`) thì in "Cài: sudo apt install python3.13-tk" và thoát mã 2.
+
+**Acceptance:**
+- [ ] Test `TurnBridge`: `out`/`status` rồi `drain` đúng thứ tự; `ask_yes_no` ở luồng phụ trả `True` sau khi luồng chính gọi `answer(True)`; hết hạn chờ thì `False` (test truyền timeout ngắn).
+- [ ] Test: `import voiceagent.gui` không import tkinter (`"tkinter" not in sys.modules` sau import, chạy trong tiến trình con).
+- [ ] Thủ công: `python -m voiceagent --gui` trên Windows: hỏi "Thủ đô của Pháp", "Mở Notepad" (y và n). Cửa sổ kéo được trong lúc "đang nghĩ…". Đóng cửa sổ ghi WAV + transcript.
+
+**Verify:** `python -m pytest -q`; thủ công như trên.
+**Dependencies:** Task 17, 19
+**Files:** `voiceagent/gui.py`, `voiceagent/__main__.py`, `tests/test_gui.py`
+**Scope:** M
+
+### Task 22: Thanh mức âm + spectrogram trực tiếp (A)
+**Mô tả:** Thêm vào `gui.py`:
+- `spectrum_column(samples, rows=128, floor_db=-100.0, ceil_db=-20.0) -> list[str]`: cửa sổ Hann, `np.fft.rfft` 512 điểm, dB, kẹp vào [floor, ceil], gộp 257 bin thành `rows` hàng, trả mã `#rrggbb` từ dưới (0 Hz) lên trên.
+- Trong `run_gui`: 2 `tk.PhotoImage` 300×128 (trước lọc từ `raw`, sau lọc từ `clean`), mỗi 50 ms vẽ 1 cột ở vị trí vòng tròn kèm vạch cột hiện tại. Thanh mức vào/ra (thang −80…0 dB), ms/khối, underrun cập nhật 10 lần/giây từ `pipeline.meters`.
+
+**Acceptance:**
+- [ ] Test `spectrum_column`: trả đúng `rows` mã `#rrggbb`; sine 1 kHz sáng nhất ở hàng 16 tính từ dưới; im lặng cho toàn màu nền; giá trị ngoài [floor, ceil] bị kẹp, không lỗi.
+- [ ] Thủ công (Success Criteria 10) trên Windows: bật quạt, bật/tắt bypass thấy hình "sau lọc" tối nền rõ hơn; mở cửa sổ 2 phút: 0 underrun, < 2 ms/khối.
+- [ ] Thủ công trên Ubuntu (B hoặc A qua máy B): như trên + 6 kịch bản qua GUI.
+
+**Verify:** `python -m pytest -q`; thủ công như trên.
+**Dependencies:** Task 21
+**Files:** `voiceagent/gui.py`, `tests/test_gui.py`
+**Scope:** M
+
+## Checkpoint 7: Sau Task 21–22
+- [ ] Success Criteria 10 đạt trên Windows 11 và Ubuntu 24.04
+- [ ] Bạn duyệt

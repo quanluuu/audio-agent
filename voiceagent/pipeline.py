@@ -86,6 +86,7 @@ class Pipeline:
         if self._calibrating:
             frame = np.concatenate([self._ss.prev_input, out])
             spec = np.fft.rfft(frame * self._ss.window)
+            self._ss.prev_input = out.astype(np.float32)  # ss.process is skipped here, so slide the frame ourselves
             self._calib_mag_acc += np.abs(spec)
             self._calib_count += 1
             if self._calib_count >= self._calib_frames_needed:
@@ -106,15 +107,10 @@ class Pipeline:
         return out
 
     def set_spectral_subtraction(self, enabled: bool, alpha: float, beta: float, smoothing: float) -> None:
-        ss = SpectralSubtractor(
-            alpha=alpha,
-            beta=beta,
-            smoothing=smoothing,
-            noise_mode=self._params.noise_mode,
-        )
-        ss.set_noise_spectrum(self._ss.noise_mag)
+        SpectralSubtractor(alpha=alpha, beta=beta, smoothing=smoothing)  # raises ValueError before anything changes
         with self._lock:
-            self._ss = ss
+            # tune in place: a new subtractor would drop the minstat history and the OLA tail (blur + click)
+            self._ss.alpha, self._ss.beta, self._ss.smoothing = alpha, beta, smoothing
             self._params = replace(
                 self._params,
                 ss_enabled=enabled,
@@ -124,9 +120,7 @@ class Pipeline:
             )
 
     def set_noise_estimator(self, mode: str) -> None:
-        if mode not in ("calibrate", "minstat"):
-            raise ValueError(f"noise_mode must be 'calibrate' or 'minstat', got {mode}")
-        with self._lock:
+        with self._lock:  # set_noise_mode validates before changing anything
             self._ss.set_noise_mode(mode)
             self._params = replace(self._params, noise_mode=mode)
 
@@ -134,8 +128,8 @@ class Pipeline:
         if seconds <= 0:
             raise ValueError(f"seconds must be > 0, got {seconds}")
         with self._lock:
-            self._calibrating = True
             self.meters.calibrating = True
             self._calib_frames_needed = int(seconds * self.sr / 256)
             self._calib_mag_acc.fill(0)
             self._calib_count = 0
+            self._calibrating = True  # last: the audio thread reads these without the lock

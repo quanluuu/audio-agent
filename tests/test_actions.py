@@ -94,3 +94,9 @@ def test_describe_action_asks_readable_questions():
 def test_action_tools_have_arg_docs():
     assert [t.__name__ for t in ACTION_TOOLS] == ["open_app", "open_url", "search_web", "save_note"]
     assert all("Args:" in t.__doc__ for t in ACTION_TOOLS)
+
+
+def test_browser_failure_returns_error(monkeypatch):
+    monkeypatch.setattr(actions.webbrowser, "open", lambda url: False)
+    assert "error" in open_url("https://vnexpress.net")
+    assert "error" in search_web("thời tiết")
