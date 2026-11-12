@@ -1,5 +1,6 @@
 import inspect
 import json
+from types import SimpleNamespace
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -8,8 +9,6 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from voiceagent import actions
-from types import SimpleNamespace
-
 from voiceagent.agent import FALLBACK_REPLY, build_graph, handle_turn, make_dsp_tools
 from voiceagent.pipeline import Pipeline
 
