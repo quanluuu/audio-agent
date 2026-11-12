@@ -314,9 +314,11 @@ Docs 2026-11-11: model `deepseek-flash` (V4.1-Flash-1017), base `https://api.dee
 **Mô tả:** Thêm trường `preset` vào `AgentState`, node `confirm`, nhánh `confirm` trong `route_after_llm` (có ít nhất một tool thuộc `ACTION_TOOLS`). `confirm` gọi `describe_action`: sai thì ghi `preset[id] = {"error"}` và không hỏi; hợp lệ thì `interrupt({"question": …})`, từ chối thì `preset[id] = {"status": "cancelled"}`. `confirm` **không có tác dụng phụ** (resume chạy lại node). `tools` dùng `preset` nếu có, rồi xóa `preset`.
 
 **Acceptance:**
-- [ ] `open_app("notepad")`: `invoke` trả `__interrupt__` có câu hỏi. Resume `True` → `Popen` gọi đúng 1 lần. Resume `False` → không gọi, `ToolMessage` chứa `cancelled`.
-- [ ] `open_app("cmd")`: không interrupt, `ToolMessage` chứa `error`, không gọi `Popen`.
-- [ ] Một `AIMessage` có 2 tool hành động: 2 interrupt; đồng ý cái đầu, từ chối cái sau → chỉ tool đầu chạy, đúng 1 lần.
+- [x] `open_app("notepad")`: `invoke` trả `__interrupt__` có câu hỏi. Resume `True` → `Popen` gọi đúng 1 lần. Resume `False` → không gọi, `ToolMessage` chứa `cancelled`.
+- [x] `open_app("cmd")`: không interrupt, `ToolMessage` chứa `error`, không gọi `Popen`.
+- [x] Một `AIMessage` có 2 tool hành động: 2 interrupt; đồng ý cái đầu, từ chối cái sau → chỉ tool đầu chạy, đúng 1 lần.
+
+DeepSeek thật 2026-11-11: "mở nút pát giúp mình" (lỗi STT giả lập) → `interrupt` hỏi "Mình sẽ mở Notepad, đồng ý không?"; từ chối → `{"status": "cancelled"}`, không gọi `Popen`.
 
 **Verify:** `python -m pytest -q tests/test_agent.py`
 
@@ -328,9 +330,12 @@ Docs 2026-11-11: model `deepseek-flash` (V4.1-Flash-1017), base `https://api.dee
 **Mô tả:** `handle_turn(text, graph, config, out, ask_yes_no, log)`: invoke graph, lặp khi còn `__interrupt__` (in câu hỏi qua `out`, `ask_yes_no()` đọc `y`/`n`, resume bằng `Command(resume=ok)`), in trả lời, ghi transcript. `recursion_limit=16`; bắt `GraphRecursionError` → in "Mình chưa làm được việc này". Bắt lỗi API (mạng, 401, 402, 429, 5xx, timeout) → in rõ, phiên vẫn chạy. Nối vào `__main__`: lượt nói → STT → "đang nghĩ…" → `handle_turn`. Thiếu `DEEPSEEK_API_KEY`: báo rõ, vẫn chạy DSP + STT + in transcript. `InMemorySaver`, `thread_id` = thời gian bắt đầu phiên.
 
 **Acceptance:**
-- [ ] Với graph/out/ask_yes_no giả: chữ rỗng thì không gọi graph; có chữ thì in đúng câu trả lời và ghi transcript; có interrupt thì hỏi rồi resume; graph ném lỗi → báo lỗi, phiên vẫn chạy; model luôn gọi tool → câu dự phòng.
-- [ ] Thủ công: 6 kịch bản trong Success Criteria 4 của spec đều đạt.
-- [ ] Thủ công: thiếu key, ngắt mạng, `quit`, Ctrl+C đều thoát hoặc báo lỗi sạch; WAV + transcript được ghi.
+- [x] Với graph/out/ask_yes_no giả: chữ rỗng thì không gọi graph; có chữ thì in đúng câu trả lời và ghi transcript; có interrupt thì hỏi rồi resume; graph ném lỗi → báo lỗi, phiên vẫn chạy; model luôn gọi tool → câu dự phòng.
+- [x] Thủ công (xong 2026-11-12): 6 kịch bản trong Success Criteria 4 của spec đều đạt.
+- [x] Thủ công (xong 2026-11-12): thiếu key, ngắt mạng, `quit`, Ctrl+C đều thoát hoặc báo lỗi sạch; WAV + transcript được ghi.
+
+Thêm `_close_dangling_tool_calls`: vượt `recursion_limit` ngay sau node `llm` để lại tool call chưa có `ToolMessage`, lượt sau DeepSeek sẽ trả 400. Có test.
+Chạy thử 2026-11-11 bằng chữ gõ (DeepSeek thật): "Thủ đô của Pháp" → đúng; "mở notepad" → hỏi y/n, `n` → `cancelled`; "còn ồn quá" → `get_status` rồi `set_spectral_subtraction(True, 2, 0.02, 0.3)`; transcript ghi đủ. `DEEPSEEK_API_KEY=` rỗng → báo thiếu key, phiên vẫn chạy.
 
 **Verify:** `python -m pytest -q`; thủ công: `python -m voiceagent`, chạy 6 kịch bản.
 

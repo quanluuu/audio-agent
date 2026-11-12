@@ -8,6 +8,7 @@ from pathlib import Path
 
 import sounddevice as sd
 
+from voiceagent.actions import ACTION_TOOLS
 from voiceagent.audio import UtteranceRecorder, open_stream, save_recording
 from voiceagent.pipeline import Pipeline
 from voiceagent.voice import append_transcript, listen_turn, make_transcriber
@@ -39,6 +40,35 @@ def load_env(path=".env", env=os.environ) -> None:
         key, sep, value = line.partition("=")
         if sep and not key.strip().startswith("#"):
             env.setdefault(key.strip(), value.strip().strip("'\""))
+
+
+def ask_yes_no() -> bool:
+    """Read y/n from the keyboard; end of input counts as no."""
+    while True:
+        try:
+            answer = input("> ").strip().lower()
+        except EOFError:
+            return False
+        if answer in ("y", "yes", "c", "có"):
+            return True
+        if answer in ("n", "no", "k", "không"):
+            return False
+        print("Gõ y hoặc n.")
+
+
+def make_agent(pipeline: Pipeline, env):
+    """Build the chat graph, or return None (with a message) when DeepSeek is not usable."""
+    if not env.get("DEEPSEEK_API_KEY"):
+        print("Thiếu DEEPSEEK_API_KEY: vẫn chạy khử ồn + STT + transcript, nhưng agent không trả lời.")
+        return None
+    try:
+        from langgraph.checkpoint.memory import InMemorySaver
+
+        from voiceagent.agent import build_graph, make_dsp_tools, make_model
+        return build_graph(make_model(env), make_dsp_tools(pipeline), ACTION_TOOLS, InMemorySaver())
+    except Exception as e:  # missing package or bad config: keep the DSP/STT session usable
+        print(f"Không khởi động được agent ({e}). Vẫn chạy khử ồn + STT.")
+        return None
 
 
 def main() -> int:
@@ -75,12 +105,23 @@ def main() -> int:
     stamp = time.strftime("%Y%m%d-%H%M%S")
     transcript = Path("out") / f"{stamp}_transcript.md"
     transcript.parent.mkdir(exist_ok=True)
-    transcribe = None
+    transcribe, graph = None, None
     if not args.no_agent:
         try:
             transcribe = make_transcriber(args.stt, os.environ)
         except Exception as e:  # no wheel, no network on first download: still usable by typing
             print(f"Không tải được model Whisper ({e}). Vẫn gõ chữ được.")
+        graph = make_agent(pipeline, os.environ)
+    # memory lives in the checkpointer under one thread per session; 16 steps ~ 5 llm/confirm/tools rounds
+    config = {"configurable": {"thread_id": stamp}, "recursion_limit": 16}
+
+    def reply(text: str) -> None:
+        if graph is None or not text:
+            return
+        print("đang nghĩ…")
+        from voiceagent.agent import handle_turn
+        handle_turn(text, graph, config, ask_yes_no=ask_yes_no,
+                    log=lambda who, t: append_transcript(transcript, who, t))
 
     if args.no_agent:
         print("Đang chạy. Đeo tai nghe để tránh hú. Enter: xem chỉ số, quit: thoát.")
@@ -100,13 +141,14 @@ def main() -> int:
                     print(format_status(pipeline))
                 elif line:
                     append_transcript(transcript, "Bạn (gõ)", line)
+                    reply(line)
                 elif not recording:
                     utterance.start()
                     recording = True
                     print("🎙 đang nghe… (Enter để dừng)")
                 else:
                     recording = False
-                    listen_turn(utterance.stop(), transcribe, transcript)
+                    reply(listen_turn(utterance.stop(), transcribe, transcript))
     except KeyboardInterrupt:
         print()
     finally:

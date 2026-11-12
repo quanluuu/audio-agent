@@ -5,8 +5,12 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 
-from voiceagent.agent import build_graph, make_dsp_tools
+from voiceagent import actions
+from types import SimpleNamespace
+
+from voiceagent.agent import FALLBACK_REPLY, build_graph, handle_turn, make_dsp_tools
 from voiceagent.pipeline import Pipeline
 
 NAMES = ["get_status", "calibrate_noise", "set_bandpass", "set_spectral_subtraction",
@@ -148,3 +152,157 @@ def test_same_thread_remembers_previous_turn():
     ask(graph, "mình tên gì?")
     texts = [m.content for m in model.calls[1]]
     assert "mình tên Quân" in texts and "Chào Quân." in texts
+
+
+CFG = {"configurable": {"thread_id": "t1"}}
+
+
+@pytest.fixture
+def popen(monkeypatch):
+    calls = []
+    monkeypatch.setattr(actions.subprocess, "Popen", lambda args, **kw: calls.append(args))
+    return calls
+
+
+def action_graph(*replies):
+    model = FakeModel(*replies)
+    graph = build_graph(model, make_dsp_tools(Pipeline()), actions.ACTION_TOOLS, InMemorySaver(), out=lambda s: None)
+    return graph, model
+
+
+def questions(result):
+    return [i.value["question"] for i in result.get("__interrupt__", [])]
+
+
+def tool_results(model):
+    return {m.tool_call_id: json.loads(m.content) for m in model.calls[-1] if isinstance(m, ToolMessage)}
+
+
+def test_action_asks_then_runs_once_when_approved(popen):
+    graph, model = action_graph(AIMessage("", tool_calls=[call("open_app", {"name": "notepad"}, "a")]),
+                                AIMessage("Đã mở Notepad."))
+    result = ask(graph, "mở notepad")
+    assert any("Notepad" in q for q in questions(result))
+    assert popen == []
+    result = graph.invoke(Command(resume=True), CFG)
+    assert popen == [[actions.ALLOWED_APPS["notepad"]]]
+    assert tool_results(model) == {"a": {"status": "ok"}}
+    assert result["messages"][-1].content == "Đã mở Notepad."
+
+
+def test_action_declined_is_cancelled(popen):
+    graph, model = action_graph(AIMessage("", tool_calls=[call("open_app", {"name": "notepad"}, "a")]),
+                                AIMessage("Mình không mở nữa."))
+    ask(graph, "mở notepad")
+    graph.invoke(Command(resume=False), CFG)
+    assert popen == []
+    assert tool_results(model) == {"a": {"status": "cancelled"}}
+
+
+def test_invalid_action_errors_without_asking(popen):
+    graph, model = action_graph(AIMessage("", tool_calls=[call("open_app", {"name": "cmd"}, "a")]),
+                                AIMessage("Không mở được cmd."))
+    result = ask(graph, "mở cmd")
+    assert questions(result) == []
+    assert popen == []
+    assert "error" in tool_results(model)["a"]
+
+
+def test_two_actions_each_asked_only_approved_one_runs_once(popen):
+    graph, model = action_graph(
+        AIMessage("", tool_calls=[call("open_app", {"name": "notepad"}, "a"),
+                                  call("open_app", {"name": "calculator"}, "b")]),
+        AIMessage("Xong."))
+    first = questions(ask(graph, "mở notepad và máy tính"))
+    second = questions(graph.invoke(Command(resume=True), CFG))
+    assert "Notepad" in first[0] and "Calculator" in second[0]
+    graph.invoke(Command(resume=False), CFG)
+    assert popen == [[actions.ALLOWED_APPS["notepad"]]]
+    assert tool_results(model) == {"a": {"status": "ok"}, "b": {"status": "cancelled"}}
+
+
+def test_dsp_and_action_in_one_message(popen):
+    graph, model = action_graph(
+        AIMessage("", tool_calls=[call("set_bypass", {"enabled": True}, "d"),
+                                  call("open_app", {"name": "paint"}, "a")]),
+        AIMessage("Xong."))
+    assert len(questions(ask(graph, "tắt lọc rồi mở paint"))) == 1
+    graph.invoke(Command(resume=True), CFG)
+    assert tool_results(model) == {"d": {"status": "ok"}, "a": {"status": "ok"}}
+    assert len(popen) == 1
+
+
+class FakeGraph:
+    """Scripted graph.invoke results; records inputs."""
+
+    def __init__(self, *results):
+        self.results, self.inputs = list(results), []
+
+    def invoke(self, inp, config):
+        self.inputs.append(inp)
+        r = self.results.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+
+def reply(text):
+    return {"messages": [AIMessage(text)]}
+
+
+def turn(graph, text, answers=()):
+    lines, log, answers = [], [], list(answers)
+    out = handle_turn(text, graph, CFG, out=lines.append, ask_yes_no=lambda: answers.pop(0),
+                      log=lambda who, t: log.append((who, t)))
+    return out, lines, log
+
+
+def test_empty_text_skips_graph():
+    graph = FakeGraph()
+    assert turn(graph, "  ")[0] == ""
+    assert graph.inputs == []
+
+
+def test_reply_is_printed_and_logged():
+    out, lines, log = turn(FakeGraph(reply("Paris.")), "Thủ đô của Pháp?")
+    assert out == "Paris."
+    assert "Agent: Paris." in lines
+    assert log == [("Agent", "Paris.")]
+
+
+def test_interrupt_asks_then_resumes_with_answer():
+    pending = {"messages": [], "__interrupt__": [SimpleNamespace(value={"question": "Mở Notepad?"})]}
+    graph = FakeGraph(pending, reply("Đã mở."))
+    out, lines, _ = turn(graph, "mở notepad", answers=[True])
+    assert any("Mở Notepad?" in line for line in lines)
+    assert isinstance(graph.inputs[1], Command) and graph.inputs[1].resume is True
+    assert out == "Đã mở."
+
+
+@pytest.mark.parametrize("error,hint", [
+    (ConnectionError("network down"), "network down"),
+    (type("APIStatusError", (Exception,), {"status_code": 402})("Insufficient Balance"), "số dư"),
+    (type("AuthenticationError", (Exception,), {"status_code": 401})("bad key"), "DEEPSEEK_API_KEY"),
+    (type("RateLimitError", (Exception,), {"status_code": 429})("slow down"), "429"),
+])
+def test_api_errors_are_reported_not_raised(error, hint):
+    out, lines, log = turn(FakeGraph(error), "xin chào")
+    assert out == ""
+    assert any(hint in line for line in lines)
+    assert log == []
+
+
+def test_endless_tool_calls_give_fallback_and_next_turn_is_valid():
+    looping = [AIMessage("", tool_calls=[call("get_status", {}, f"c{i}")]) for i in range(20)]
+    model = FakeModel(*looping, AIMessage("Chào bạn."))
+    graph = build_graph(model, make_dsp_tools(Pipeline()), [], InMemorySaver(), out=lambda s: None)
+    config = dict(CFG, recursion_limit=16)
+    lines = []
+    assert handle_turn("chỉnh mãi", graph, config, out=lines.append, ask_yes_no=None, log=lambda *a: None) == FALLBACK_REPLY
+    model.replies = [AIMessage("Chào bạn.")]
+    assert handle_turn("chào", graph, config, out=lines.append, ask_yes_no=None, log=lambda *a: None) == "Chào bạn."
+    # every tool call the API sees must have a ToolMessage answer, or DeepSeek rejects the request
+    sent = model.calls[-1]
+    answered = {m.tool_call_id for m in sent if isinstance(m, ToolMessage)}
+    asked = {c["id"] for m in sent if isinstance(m, AIMessage) for c in m.tool_calls}
+    assert asked <= answered
