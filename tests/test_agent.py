@@ -251,6 +251,9 @@ class FakeGraph:
             raise r
         return r
 
+    def get_state(self, config):
+        return SimpleNamespace(values={})
+
 
 def reply(text):
     return {"messages": [AIMessage(text)]}
@@ -312,3 +315,30 @@ def test_endless_tool_calls_give_fallback_and_next_turn_is_valid():
     answered = {m.tool_call_id for m in sent if isinstance(m, ToolMessage)}
     asked = {c["id"] for m in sent if isinstance(m, AIMessage) for c in m.tool_calls}
     assert asked <= answered
+
+
+def test_tool_os_error_is_reported_and_next_turn_is_valid(monkeypatch):
+    def missing(args, **kw):
+        raise FileNotFoundError(args[0])
+    monkeypatch.setattr(actions.subprocess, "Popen", missing)
+    graph, model = action_graph(AIMessage("", tool_calls=[call("open_app", {"name": "paint"}, "a")]),
+                                AIMessage("Không mở được Paint."), AIMessage("Chào bạn."))
+    turn(graph, "mở paint", answers=[True])
+    assert "error" in tool_results(model)["a"]
+    assert turn(graph, "chào")[0] == "Chào bạn."
+    sent = model.calls[-1]
+    answered = {m.tool_call_id for m in sent if isinstance(m, ToolMessage)}
+    assert {c["id"] for m in sent if isinstance(m, AIMessage) for c in m.tool_calls} <= answered
+
+
+def test_unexpected_tool_crash_closes_dangling_call():
+    def crash(**kw):
+        raise RuntimeError("boom")
+    crash.__name__ = "get_status"
+    model = FakeModel(AIMessage("", tool_calls=[call("get_status", {}, "a")]), AIMessage("Chào bạn."))
+    graph = build_graph(model, [crash], [], InMemorySaver(), out=lambda s: None)
+    assert turn(graph, "trạng thái?")[0] == ""
+    assert turn(graph, "chào")[0] == "Chào bạn."
+    sent = model.calls[-1]
+    answered = {m.tool_call_id for m in sent if isinstance(m, ToolMessage)}
+    assert {c["id"] for m in sent if isinstance(m, AIMessage) for c in m.tool_calls} <= answered

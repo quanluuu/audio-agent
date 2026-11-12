@@ -72,7 +72,8 @@ def open_url(url: str) -> dict:
         url = _check_url(url)
     except ValueError as e:
         return {"error": str(e)}
-    webbrowser.open(url)
+    if not webbrowser.open(url):
+        return {"error": "không mở được trình duyệt"}
     return {"status": "ok"}
 
 
@@ -87,7 +88,8 @@ def search_web(query: str) -> dict:
     except ValueError as e:
         return {"error": str(e)}
     url = "https://www.google.com/search?q=" + urllib.parse.quote_plus(query)
-    webbrowser.open(url)
+    if not webbrowser.open(url):
+        return {"error": "không mở được trình duyệt"}
     return {"status": "ok", "url": url}
 
 
