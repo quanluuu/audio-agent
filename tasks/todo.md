@@ -442,11 +442,13 @@ Chạy lại 2026-11-13 21:40 với `--gui --stt gemini` (`out/20261113-213956_t
 
 **Acceptance:**
 - [x] Test `spectrum_column`: trả đúng `rows` mã `#rrggbb`; sine 1 kHz sáng nhất ở hàng 16 tính từ dưới; im lặng cho toàn màu nền; giá trị ngoài [floor, ceil] bị kẹp, không lỗi.
-- [ ] Thủ công (Success Criteria 10) trên Windows: bật quạt, bật/tắt bypass thấy hình "sau lọc" tối nền rõ hơn; mở cửa sổ 2 phút: 0 underrun, < 2 ms/khối.
+- [x] Thủ công (xong 2026-11-13) (Success Criteria 10) trên Windows: bật quạt, bật/tắt bypass thấy hình "sau lọc" tối nền rõ hơn; mở cửa sổ 2 phút: 0 underrun, < 2 ms/khối.
 - [ ] Thủ công trên Ubuntu (B hoặc A qua máy B): như trên + 6 kịch bản qua GUI.
 
 `run_gui(pipeline, utterance, raw, clean, transcribe, graph, config, transcript)`. Màu: `PALETTE` 256 mức (tối → tím → hồng → vàng), thang 0 dB = sine full-scale. Spectrogram và thanh mức âm vẽ trong cùng vòng `poll` 50 ms, thanh mức âm 10 lần/giây.
 Smoke 2026-11-13 (cửa sổ thật, micro giả: ồn trắng −40 dB + tone 440 Hz bật/tắt, `Pipeline` thật với SS minstat): 272 cột trong 8.2 s, `spectrum_column` trung bình 0.41 ms (max 2.3 ms), luồng audio giả 0 underrun, 0.86 ms/khối. Ảnh "sau lọc" tối hẳn trên ~3.8 kHz và nền tối đi sau ~1.5 s khi minstat hội tụ; tone giữ nguyên. 131/131 test xanh.
+
+Chạy tay trên Windows 2026-11-13 21:50 (`out/20261113-215026_transcript.md`): "tắt/bật bypass" bằng giọng nói qua GUI, agent gọi đúng `set_bypass`; bạn xác nhận đạt. Còn chờ B chạy trên Ubuntu.
 
 **Verify:** `python -m pytest -q`; thủ công như trên.
 **Dependencies:** Task 21
