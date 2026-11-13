@@ -1,4 +1,4 @@
-"""CLI entry: python -m voiceagent [--list-devices] [--input N] [--output N] [--no-agent] [--monitor] [--all-filters] [--stt whisper|gemini]"""
+"""CLI entry: python -m voiceagent [--list-devices] [--input N] [--output N] [--no-agent] [--monitor] [--all-filters] [--stt whisper|gemini] [--gui]"""
 
 import argparse
 import os
@@ -82,12 +82,19 @@ def main() -> int:
                         help="bật cả band-pass + spectral subtraction (minstat) + noise gate")
     parser.add_argument("--stt", choices=["whisper", "gemini"], default="whisper",
                         help="nhận dạng giọng: whisper (local, mặc định) hoặc gemini (cần GEMINI_API_KEY)")
+    parser.add_argument("--gui", action="store_true", help="mở cửa sổ (Tkinter) thay cho dòng lệnh")
     args = parser.parse_args()
     load_env()
 
     if args.list_devices:
         print(sd.query_devices())
         return 0
+    if args.gui:
+        try:
+            import tkinter  # noqa: F401  checked before the stream opens, so nothing needs cleanup
+        except ImportError:
+            print("Thiếu tkinter. Cài: sudo apt install python3.13-tk", file=sys.stderr)
+            return 2
 
     pipeline = Pipeline()
     pipeline.set_monitor(args.monitor or args.no_agent)
@@ -123,14 +130,19 @@ def main() -> int:
         handle_turn(text, graph, config, ask_yes_no=ask_yes_no,
                     log=lambda who, t: append_transcript(transcript, who, t))
 
-    if args.no_agent:
+    if args.gui:
+        print("Đang chạy cửa sổ. Đóng cửa sổ để thoát.")
+    elif args.no_agent:
         print("Đang chạy. Đeo tai nghe để tránh hú. Enter: xem chỉ số, quit: thoát.")
     else:
         print("Đang chạy. Enter: bắt đầu/dừng nói, gõ chữ rồi Enter: gửi chữ, status: chỉ số, quit: thoát.")
     recording = False
     try:
         with stream:
-            while True:
+            if args.gui:
+                from voiceagent.gui import run_gui
+                run_gui(utterance, transcribe, graph, config, transcript)
+            while not args.gui:
                 try:
                     line = input("> ").strip()
                 except EOFError:

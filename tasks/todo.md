@@ -420,9 +420,12 @@ B xác nhận 2026-11-13: `/usr/bin/gnome-text-editor`, `/usr/bin/gnome-calculat
 - `__main__.py`: cờ `--gui`. Phần dựng phiên giữ chung; `--gui` gọi `run_gui` thay cho vòng `input()`; `finally` vẫn ghi WAV. Thiếu tkinter (`ImportError`) thì in "Cài: sudo apt install python3.13-tk" và thoát mã 2.
 
 **Acceptance:**
-- [ ] Test `TurnBridge`: `out`/`status` rồi `drain` đúng thứ tự; `ask_yes_no` ở luồng phụ trả `True` sau khi luồng chính gọi `answer(True)`; hết hạn chờ thì `False` (test truyền timeout ngắn).
-- [ ] Test: `import voiceagent.gui` không import tkinter (`"tkinter" not in sys.modules` sau import, chạy trong tiến trình con).
+- [x] Test `TurnBridge`: `out`/`status` rồi `drain` đúng thứ tự; `ask_yes_no` ở luồng phụ trả `True` sau khi luồng chính gọi `answer(True)`; hết hạn chờ thì `False` (test truyền timeout ngắn).
+- [x] Test: `import voiceagent.gui` không import tkinter (`"tkinter" not in sys.modules` sau import, chạy trong tiến trình con).
 - [ ] Thủ công: `python -m voiceagent --gui` trên Windows: hỏi "Thủ đô của Pháp", "Mở Notepad" (y và n). Cửa sổ kéo được trong lúc "đang nghĩ…". Đóng cửa sổ ghi WAV + transcript.
+
+Lệch spec có chủ ý: không có `answer(ok)`/`status()`. `ask_yes_no` gửi kèm một hàm `reply` riêng cho từng câu hỏi, nên câu trả lời đến sau khi hết hạn không lọt sang câu hỏi kế. Trạng thái do cửa sổ tự đặt ("đang nghe…", "đang xử lý…"). `run_gui(utterance, transcribe, graph, config, transcript)`; `pipeline`, `raw`, `clean` thêm ở Task 22.
+Smoke 2026-11-13 (cửa sổ thật, graph giả, tự gõ + bấm Gửi): hộp y/n hiện câu hỏi, trả lời in ra, nút mở lại, transcript đủ. 127/127 test xanh.
 
 **Verify:** `python -m pytest -q`; thủ công như trên.
 **Dependencies:** Task 17, 19
