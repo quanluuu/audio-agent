@@ -399,7 +399,7 @@ B xác nhận 2026-11-13: `/usr/bin/gnome-text-editor`, `/usr/bin/gnome-calculat
 **Files:** không bắt buộc; `CONTRIBUTING.md` nếu lệnh cài cần sửa
 **Scope:** S
 
-## Checkpoint 6: Sau Task 19–20
+## Checkpoint 5: Sau Task 19–20
 - [ ] pytest xanh trên Windows 11 và Ubuntu 24.04
 - [ ] B chạy được 6 kịch bản trên Ubuntu
 - [ ] Bạn duyệt trước khi sang Phase 7
@@ -448,7 +448,7 @@ Chạy tay trên Windows 2026-11-13 21:50 (`out/20261113-215026_transcript.md`):
 **Files:** `voiceagent/gui.py`, `tests/test_gui.py`
 **Scope:** M
 
-## Checkpoint 5: Hoàn thành (gộp Checkpoint 7, 2026-11-13)
+## Checkpoint 6: Hoàn thành (sau Task 22)
 - [ ] Toàn bộ Success Criteria 1–10 trong SPEC.md đạt; tiêu chí 1, 4, 10 trên cả Windows 11 và Ubuntu 24.04
 - [ ] `/agent-skills:code-simplify` và ponytail review không còn vấn đề chặn (chạy lại cho Task 18–22)
 - [ ] Sẵn sàng `/agent-skills:ship`
