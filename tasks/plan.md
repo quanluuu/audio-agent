@@ -89,7 +89,7 @@ Duyệt 2026-11-12; còn mở tiêu chí 8, 9 (Task 11–12 của B).
 ### Checkpoint 6: pytest xanh trên cả 2 hệ, 6 kịch bản chạy tay trên Ubuntu
 
 ### Phase 7: Giao diện Tkinter (`--gui`)
-- [ ] Task 21: `TurnBridge` + cửa sổ chat, nút giữ để nói, hộp y/n, cờ `--gui` (A)
+- [x] Task 21: `TurnBridge` + cửa sổ chat, nút giữ để nói, hộp y/n, cờ `--gui` (A)
 - [ ] Task 22: Thanh mức âm + spectrogram trực tiếp trước/sau lọc (A)
 
 ### Checkpoint 7: Success Criteria 10 đạt trên Windows 11 và Ubuntu 24.04

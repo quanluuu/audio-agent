@@ -420,9 +420,15 @@ B xác nhận 2026-11-13: `/usr/bin/gnome-text-editor`, `/usr/bin/gnome-calculat
 - `__main__.py`: cờ `--gui`. Phần dựng phiên giữ chung; `--gui` gọi `run_gui` thay cho vòng `input()`; `finally` vẫn ghi WAV. Thiếu tkinter (`ImportError`) thì in "Cài: sudo apt install python3.13-tk" và thoát mã 2.
 
 **Acceptance:**
-- [ ] Test `TurnBridge`: `out`/`status` rồi `drain` đúng thứ tự; `ask_yes_no` ở luồng phụ trả `True` sau khi luồng chính gọi `answer(True)`; hết hạn chờ thì `False` (test truyền timeout ngắn).
-- [ ] Test: `import voiceagent.gui` không import tkinter (`"tkinter" not in sys.modules` sau import, chạy trong tiến trình con).
-- [ ] Thủ công: `python -m voiceagent --gui` trên Windows: hỏi "Thủ đô của Pháp", "Mở Notepad" (y và n). Cửa sổ kéo được trong lúc "đang nghĩ…". Đóng cửa sổ ghi WAV + transcript.
+- [x] Test `TurnBridge`: `out`/`status` rồi `drain` đúng thứ tự; `ask_yes_no` ở luồng phụ trả `True` sau khi luồng chính gọi `answer(True)`; hết hạn chờ thì `False` (test truyền timeout ngắn).
+- [x] Test: `import voiceagent.gui` không import tkinter (`"tkinter" not in sys.modules` sau import, chạy trong tiến trình con).
+- [x] Thủ công (xong 2026-11-13): `python -m voiceagent --gui` trên Windows: hỏi "Thủ đô của Pháp", "Mở Notepad" (y và n). Cửa sổ kéo được trong lúc "đang nghĩ…". Đóng cửa sổ ghi WAV + transcript.
+
+Lệch spec có chủ ý: không có `answer(ok)`/`status()`. `ask_yes_no` gửi kèm một hàm `reply` riêng cho từng câu hỏi, nên câu trả lời đến sau khi hết hạn không lọt sang câu hỏi kế. Trạng thái do cửa sổ tự đặt ("đang nghe…", "đang xử lý…"). `run_gui(utterance, transcribe, graph, config, transcript)`; `pipeline`, `raw`, `clean` thêm ở Task 22.
+Smoke 2026-11-13 (cửa sổ thật, graph giả, tự gõ + bấm Gửi): hộp y/n hiện câu hỏi, trả lời in ra, nút mở lại, transcript đủ. 127/127 test xanh.
+
+Chạy tay 2026-11-13: GUI đạt. STT kém trong phiên này (nền ồn −44 dB, có tiếng người/video ở nền; band-pass 3800 Hz cắt 9 dB dải 4–8 kHz). Whisper với `hotwords="Notepad Calculator Paint Google"` nghe ra "mở Notepad", "Mở Google". Đề xuất: thêm `hotwords` (A), nâng `high_hz` 7000 (Task 12, B duyệt).
+Chạy lại 2026-11-13 21:40 với `--gui --stt gemini` (`out/20261113-213956_transcript.md`): 7 câu nói, 6 câu đúng chữ. Câu sai: nói "Bạn có phải Gemini không?", ra chữ "Bạn có phải Germany không?" (tên riêng tiếng Anh). "Thủ đô của Pháp là gì?" → Paris. "mở notepad" và "Mở paint" đều mở đúng app sau khi xác nhận y/n; đây là lần đầu Paint mở thật qua alias `WindowsApps\mspaint.exe` (đóng mục rủi ro cũ). Gemini tốt hơn Whisper rõ rệt trong cùng môi trường.
 
 **Verify:** `python -m pytest -q`; thủ công như trên.
 **Dependencies:** Task 17, 19
