@@ -141,7 +141,7 @@ def main() -> int:
         with stream:
             if args.gui:
                 from voiceagent.gui import run_gui
-                run_gui(utterance, transcribe, graph, config, transcript)
+                run_gui(pipeline, utterance, raw, clean, transcribe, graph, config, transcript)
             while not args.gui:
                 try:
                     line = input("> ").strip()

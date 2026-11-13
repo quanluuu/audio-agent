@@ -1,8 +1,11 @@
+import re
 import subprocess
 import sys
 import threading
 
-from voiceagent.gui import TurnBridge
+import numpy as np
+
+from voiceagent.gui import PALETTE, TurnBridge, spectrum_column
 
 
 def test_out_and_done_drain_in_order():
@@ -42,3 +45,28 @@ def test_ask_times_out_as_no_and_late_reply_is_ignored():
 def test_importing_gui_does_not_import_tkinter():
     code = "import sys, voiceagent.gui; sys.exit('tkinter' in sys.modules)"
     assert subprocess.run([sys.executable, "-c", code]).returncode == 0
+
+
+def sine(freq, amp=0.5, n=512, sr=16000):
+    return (amp * np.sin(2 * np.pi * freq * np.arange(n) / sr)).astype(np.float32)
+
+
+def test_spectrum_column_shape_and_colors():
+    col = spectrum_column(sine(1000))
+    assert len(col) == 128
+    assert all(re.fullmatch(r"#[0-9a-f]{6}", c) for c in col)
+
+
+def test_spectrum_column_puts_1khz_at_row_16_from_bottom():
+    levels = [PALETTE.index(c) for c in spectrum_column(sine(1000, amp=0.001))]  # -60 dB: below the ceiling
+    assert levels.index(max(levels)) == 16
+
+
+def test_spectrum_column_silence_is_background_and_loud_is_clamped():
+    assert set(spectrum_column(np.zeros(512, np.float32))) == {PALETTE[0]}
+    loud = spectrum_column(sine(1000, amp=100.0))
+    assert loud[16] == PALETTE[-1]
+
+
+def test_spectrum_column_pads_short_input():
+    assert len(spectrum_column(np.zeros(100, np.float32))) == 128
