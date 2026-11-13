@@ -364,13 +364,6 @@ Chạy thử 2026-11-11 bằng chữ gõ (DeepSeek thật): "Thủ đô của Ph
 **Files:** `voiceagent/agent.py`, `voiceagent/pipeline.py`, `voiceagent/actions.py`, `tests/test_agent.py`, `tests/test_pipeline.py`, `tests/test_actions.py`
 **Scope:** S
 
-## Checkpoint 5: Hoàn thành
-- [ ] Toàn bộ Success Criteria 1–9 trong SPEC.md đạt
-- [x] `/agent-skills:code-simplify` và ponytail review không còn vấn đề chặn (2026-11-12: chỉ sắp lại import, không có code thừa)
-- [ ] Sẵn sàng `/agent-skills:ship`
-
-Bạn duyệt 2026-11-12 với mục còn mở: Success Criteria 1–7 đạt (thử tay Task 6, 6b, 17). Tiêu chí 8, 9 chờ Task 11–12 của B. Dòng log `[tool]` giờ cắt ở 100 ký tự (model vẫn nhận đủ kết quả).
-
 ## Phase 6: Chạy trên Ubuntu 24.04
 
 ### Task 19: Bảng app theo hệ điều hành (A)
@@ -406,7 +399,7 @@ B xác nhận 2026-11-13: `/usr/bin/gnome-text-editor`, `/usr/bin/gnome-calculat
 **Files:** không bắt buộc; `CONTRIBUTING.md` nếu lệnh cài cần sửa
 **Scope:** S
 
-## Checkpoint 6: Sau Task 19–20
+## Checkpoint 5: Sau Task 19–20
 - [ ] pytest xanh trên Windows 11 và Ubuntu 24.04
 - [ ] B chạy được 6 kịch bản trên Ubuntu
 - [ ] Bạn duyệt trước khi sang Phase 7
@@ -455,6 +448,16 @@ Chạy tay trên Windows 2026-11-13 21:50 (`out/20261113-215026_transcript.md`):
 **Files:** `voiceagent/gui.py`, `tests/test_gui.py`
 **Scope:** M
 
-## Checkpoint 7: Sau Task 21–22
-- [ ] Success Criteria 10 đạt trên Windows 11 và Ubuntu 24.04
+## Checkpoint 6: Hoàn thành (sau Task 22)
+- [ ] Toàn bộ Success Criteria 1–10 trong SPEC.md đạt; tiêu chí 1, 4, 10 trên cả Windows 11 và Ubuntu 24.04
+- [ ] `/agent-skills:code-simplify` và ponytail review không còn vấn đề chặn (chạy lại cho Task 18–22)
+- [ ] Sẵn sàng `/agent-skills:ship`
 - [ ] Bạn duyệt
+
+Trạng thái 2026-11-13:
+- Tiêu chí 1–7: đạt trên Windows (thử tay Task 6, 6b, 17; bạn duyệt 2026-11-12).
+- Tiêu chí 8, 9: chờ Task 11–12 của B.
+- Tiêu chí 10 (GUI): đạt trên Windows (Task 21, 22); chờ B trên Ubuntu.
+- Tiêu chí 1, 4 trên Ubuntu: chờ Task 20 của B.
+- Code-simplify + ponytail audit đã chạy 2026-11-12 (chỉ sắp lại import; audit ra Task 18). Code Task 19–22 viết sau đó, chưa review lại.
+- Dòng log `[tool]` cắt ở 100 ký tự (model vẫn nhận đủ kết quả).

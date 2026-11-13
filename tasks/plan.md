@@ -79,20 +79,18 @@ Thứ tự của A: `0 → 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17`. T
 - [x] Task 17: `handle_turn` + vòng hội thoại đầy đủ
 - [x] Task 18: Sửa lỗi từ ponytail audit (2026-11-12)
 
-### Checkpoint 5: Toàn bộ Success Criteria 1–9 trong SPEC.md
-Duyệt 2026-11-12; còn mở tiêu chí 8, 9 (Task 11–12 của B).
-
 ### Phase 6: Chạy trên Ubuntu 24.04
 - [x] Task 19: Bảng app theo hệ điều hành (`WINDOWS_APPS` / `LINUX_APPS`) (A)
 - [ ] Task 20: Nghiệm thu trên Ubuntu: cài, pytest, Success Criteria 1, 2, 4 (B)
 
-### Checkpoint 6: pytest xanh trên cả 2 hệ, 6 kịch bản chạy tay trên Ubuntu
+### Checkpoint 5: pytest xanh trên cả 2 hệ, 6 kịch bản chạy tay trên Ubuntu
 
 ### Phase 7: Giao diện Tkinter (`--gui`)
 - [x] Task 21: `TurnBridge` + cửa sổ chat, nút giữ để nói, hộp y/n, cờ `--gui` (A)
 - [ ] Task 22: Thanh mức âm + spectrogram trực tiếp trước/sau lọc (A)
 
-### Checkpoint 7: Success Criteria 10 đạt trên Windows 11 và Ubuntu 24.04
+### Checkpoint 6: Hoàn thành — toàn bộ Success Criteria 1–10 trong SPEC.md
+Duyệt một phần 2026-11-12 (tiêu chí 1–7). Còn mở: 8, 9 (Task 11–12 của B); 10 trên Ubuntu (B).
 
 ## Risks and Mitigations
 | Risk | Impact | Mitigation |
