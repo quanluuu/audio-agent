@@ -379,11 +379,13 @@ Bạn duyệt 2026-11-12 với mục còn mở: Success Criteria 1–7 đạt (t
 **Trước khi code:** hỏi B kết quả `ls -l /usr/bin/gnome-text-editor /usr/bin/gnome-calculator /snap/bin/gnome-calculator`.
 
 **Acceptance:**
-- [ ] Test: mọi đường dẫn trong `WINDOWS_APPS` và `LINUX_APPS` là tuyệt đối (`PureWindowsPath`/`PurePosixPath(...).is_absolute()`).
-- [ ] Test: `LINUX_APPS` không có `paint`; cả 2 bảng có `notepad` và `calculator`.
-- [ ] Test: `ALLOWED_APPS is (WINDOWS_APPS if sys.platform == "win32" else LINUX_APPS)`.
-- [ ] `test_dsp_and_action_in_one_message` và `test_tool_os_error_is_reported_and_next_turn_is_valid` dùng `calculator` thay cho `paint`.
-- [ ] `python -m pytest -q` xanh trên Windows.
+- [x] Test: mọi đường dẫn trong `WINDOWS_APPS` và `LINUX_APPS` là tuyệt đối (`PureWindowsPath`/`PurePosixPath(...).is_absolute()`).
+- [x] Test: `LINUX_APPS` không có `paint`; cả 2 bảng có `notepad` và `calculator`.
+- [x] Test: `ALLOWED_APPS is (WINDOWS_APPS if sys.platform == "win32" else LINUX_APPS)`.
+- [x] `test_dsp_and_action_in_one_message` và `test_tool_os_error_is_reported_and_next_turn_is_valid` dùng `calculator` thay cho `paint`.
+- [x] `python -m pytest -q` xanh trên Windows.
+
+B xác nhận 2026-11-13: `/usr/bin/gnome-text-editor`, `/usr/bin/gnome-calculator` (deb, không có snap). Giả lập `sys.platform='linux'`: `paint` bị từ chối, `notepad` hỏi xác nhận. 123/123 test xanh trên Windows.
 
 **Verify:** `python -m pytest -q`
 **Dependencies:** Task 18

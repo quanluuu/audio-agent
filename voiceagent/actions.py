@@ -7,6 +7,7 @@ confirmation still cannot open an unlisted exe, a file:// URL, or write outside 
 import os
 import re
 import subprocess
+import sys
 import time
 import urllib.parse
 import webbrowser
@@ -15,11 +16,17 @@ from pathlib import Path
 _SYSTEM32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
 _STORE_APPS = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WindowsApps"
 # full paths so a planted notepad.exe in the working dir or PATH is never picked up
-ALLOWED_APPS = {
+WINDOWS_APPS = {
     "notepad": str(_SYSTEM32 / "notepad.exe"),
     "calculator": str(_SYSTEM32 / "calc.exe"),
     "paint": str(_STORE_APPS / "mspaint.exe"),  # Windows 11 Paint is a Store app with an execution alias
 }
+# Ubuntu 24.04 GNOME defaults (deb, not snap); no paint app ships by default
+LINUX_APPS = {
+    "notepad": "/usr/bin/gnome-text-editor",
+    "calculator": "/usr/bin/gnome-calculator",
+}
+ALLOWED_APPS = WINDOWS_APPS if sys.platform == "win32" else LINUX_APPS
 NOTES_DIR = Path("notes")
 
 
@@ -49,10 +56,10 @@ def _slug(title: str) -> str:
 
 
 def open_app(name: str) -> dict:
-    """Mở một ứng dụng Windows có trong danh sách cho phép.
+    """Mở một ứng dụng trên máy có trong danh sách cho phép.
 
     Args:
-        name: Tên app: notepad, calculator hoặc paint.
+        name: Tên app: notepad, calculator, hoặc paint (paint chỉ có trên Windows).
     """
     try:
         key = _check_app(name)

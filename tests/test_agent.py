@@ -230,9 +230,9 @@ def test_two_actions_each_asked_only_approved_one_runs_once(popen):
 def test_dsp_and_action_in_one_message(popen):
     graph, model = action_graph(
         AIMessage("", tool_calls=[call("set_bypass", {"enabled": True}, "d"),
-                                  call("open_app", {"name": "paint"}, "a")]),
+                                  call("open_app", {"name": "calculator"}, "a")]),
         AIMessage("Xong."))
-    assert len(questions(ask(graph, "tắt lọc rồi mở paint"))) == 1
+    assert len(questions(ask(graph, "tắt lọc rồi mở máy tính"))) == 1
     graph.invoke(Command(resume=True), CFG)
     assert tool_results(model) == {"d": {"status": "ok"}, "a": {"status": "ok"}}
     assert len(popen) == 1
@@ -321,9 +321,9 @@ def test_tool_os_error_is_reported_and_next_turn_is_valid(monkeypatch):
     def missing(args, **kw):
         raise FileNotFoundError(args[0])
     monkeypatch.setattr(actions.subprocess, "Popen", missing)
-    graph, model = action_graph(AIMessage("", tool_calls=[call("open_app", {"name": "paint"}, "a")]),
-                                AIMessage("Không mở được Paint."), AIMessage("Chào bạn."))
-    turn(graph, "mở paint", answers=[True])
+    graph, model = action_graph(AIMessage("", tool_calls=[call("open_app", {"name": "calculator"}, "a")]),
+                                AIMessage("Không mở được máy tính."), AIMessage("Chào bạn."))
+    turn(graph, "mở máy tính", answers=[True])
     assert "error" in tool_results(model)["a"]
     assert turn(graph, "chào")[0] == "Chào bạn."
     sent = model.calls[-1]

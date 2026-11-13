@@ -100,3 +100,13 @@ def test_browser_failure_returns_error(monkeypatch):
     monkeypatch.setattr(actions.webbrowser, "open", lambda url: False)
     assert "error" in open_url("https://vnexpress.net")
     assert "error" in search_web("thời tiết")
+
+
+def test_app_tables_use_absolute_paths_and_match_platform():
+    import sys
+    from pathlib import PurePosixPath, PureWindowsPath
+    assert all(PureWindowsPath(p).is_absolute() for p in actions.WINDOWS_APPS.values())
+    assert all(PurePosixPath(p).is_absolute() for p in actions.LINUX_APPS.values())
+    assert {"notepad", "calculator"} <= set(actions.WINDOWS_APPS) & set(actions.LINUX_APPS)
+    assert "paint" not in actions.LINUX_APPS
+    assert ALLOWED_APPS is (actions.WINDOWS_APPS if sys.platform == "win32" else actions.LINUX_APPS)
