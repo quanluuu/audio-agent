@@ -441,9 +441,12 @@ Chạy lại 2026-11-13 21:40 với `--gui --stt gemini` (`out/20261113-213956_t
 - Trong `run_gui`: 2 `tk.PhotoImage` 300×128 (trước lọc từ `raw`, sau lọc từ `clean`), mỗi 50 ms vẽ 1 cột ở vị trí vòng tròn kèm vạch cột hiện tại. Thanh mức vào/ra (thang −80…0 dB), ms/khối, underrun cập nhật 10 lần/giây từ `pipeline.meters`.
 
 **Acceptance:**
-- [ ] Test `spectrum_column`: trả đúng `rows` mã `#rrggbb`; sine 1 kHz sáng nhất ở hàng 16 tính từ dưới; im lặng cho toàn màu nền; giá trị ngoài [floor, ceil] bị kẹp, không lỗi.
+- [x] Test `spectrum_column`: trả đúng `rows` mã `#rrggbb`; sine 1 kHz sáng nhất ở hàng 16 tính từ dưới; im lặng cho toàn màu nền; giá trị ngoài [floor, ceil] bị kẹp, không lỗi.
 - [ ] Thủ công (Success Criteria 10) trên Windows: bật quạt, bật/tắt bypass thấy hình "sau lọc" tối nền rõ hơn; mở cửa sổ 2 phút: 0 underrun, < 2 ms/khối.
 - [ ] Thủ công trên Ubuntu (B hoặc A qua máy B): như trên + 6 kịch bản qua GUI.
+
+`run_gui(pipeline, utterance, raw, clean, transcribe, graph, config, transcript)`. Màu: `PALETTE` 256 mức (tối → tím → hồng → vàng), thang 0 dB = sine full-scale. Spectrogram và thanh mức âm vẽ trong cùng vòng `poll` 50 ms, thanh mức âm 10 lần/giây.
+Smoke 2026-11-13 (cửa sổ thật, micro giả: ồn trắng −40 dB + tone 440 Hz bật/tắt, `Pipeline` thật với SS minstat): 272 cột trong 8.2 s, `spectrum_column` trung bình 0.41 ms (max 2.3 ms), luồng audio giả 0 underrun, 0.86 ms/khối. Ảnh "sau lọc" tối hẳn trên ~3.8 kHz và nền tối đi sau ~1.5 s khi minstat hội tụ; tone giữ nguyên. 131/131 test xanh.
 
 **Verify:** `python -m pytest -q`; thủ công như trên.
 **Dependencies:** Task 21
