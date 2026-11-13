@@ -83,7 +83,7 @@ Thứ tự của A: `0 → 5 → 6 → 6b → 14 → 13 → 15 → 16 → 17`. T
 Duyệt 2026-11-12; còn mở tiêu chí 8, 9 (Task 11–12 của B).
 
 ### Phase 6: Chạy trên Ubuntu 24.04
-- [ ] Task 19: Bảng app theo hệ điều hành (`WINDOWS_APPS` / `LINUX_APPS`) (A)
+- [x] Task 19: Bảng app theo hệ điều hành (`WINDOWS_APPS` / `LINUX_APPS`) (A)
 - [ ] Task 20: Nghiệm thu trên Ubuntu: cài, pytest, Success Criteria 1, 2, 4 (B)
 
 ### Checkpoint 6: pytest xanh trên cả 2 hệ, 6 kịch bản chạy tay trên Ubuntu
